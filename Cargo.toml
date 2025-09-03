@@ -92,6 +92,3 @@ memory_set = "0.4"
 percpu = "0.2"
 rand = "0.9"
 spin = "0.10"
-
-[profile.release]
-lto = true
