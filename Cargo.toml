@@ -29,7 +29,6 @@ members = [
     "examples/helloworld-myplat",
     "examples/httpclient",
     "examples/httpserver",
-    "examples/httpserver",
     "examples/shell",
 ]
 
@@ -67,6 +66,32 @@ axsync = { path = "modules/axsync" }
 axtask = { path = "modules/axtask" }
 axdma = { path = "modules/axdma" }
 axipi = { path = "modules/axipi" }
+
+allocator = { git = "https://github.com/arceos-org/allocator.git", tag = "v0.1.1" }
+axdriver_base = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.2" }
+axdriver_block = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.2" }
+axdriver_display = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.2" }
+axdriver_net = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.2" }
+axdriver_pci = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.2" }
+axdriver_virtio = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.2" }
+axerrno = "0.1"
+axio = "0.1"
+bindgen = "0.72"
+cfg-if = "1.0"
+chrono = { version = "0.4", default-features = false }
+crate_interface = "0.1.4"
+ctor_bare = "0.2"
+kernel_guard = "0.1"
+kspin = "0.1"
+lazyinit = "0.2"
+lazy_static = { version = "1.5", features = ["spin_no_std"] }
+lock_api = { version = "0.4", default-features = false }
+log = "=0.4.21"
+memory_addr = "0.4"
+memory_set = "0.4"
+percpu = "0.2"
+rand = "0.9"
+spin = "0.10"
 
 [profile.release]
 lto = true
