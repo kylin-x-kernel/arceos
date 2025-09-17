@@ -59,7 +59,7 @@ BLK ?= n
 NET ?= n
 GRAPHIC ?= n
 BUS ?= pci
-MEM ?= 128M
+MEM ?=
 ACCEL ?=
 QEMU_ARGS ?=
 
