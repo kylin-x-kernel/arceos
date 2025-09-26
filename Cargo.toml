@@ -86,7 +86,7 @@ scope-local = "0.1"
 spin = "0.10"
 
 [patch.crates-io]
-axcpu = { git = "https://github.com/Starry-OS/axcpu.git" }
+axcpu = { git = "https://github.com/kylin-x-kernel/axcpu.git", branch ="main"}
 axerrno = { git = "https://github.com/Starry-OS/axerrno.git" }
 axfs-ng-vfs = { git = "https://github.com/Starry-OS/axfs-ng-vfs.git" }
 axio = { git = "https://github.com/Starry-OS/axio.git" }
