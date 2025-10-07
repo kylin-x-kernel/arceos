@@ -24,7 +24,6 @@ multitask = [
     "dep:lazyinit",
     "dep:memory_addr",
     "dep:percpu",
-    "dep:pin-project",
     "dep:weak-map",
 ]
 task-ext = ["dep:extern-trait"]
@@ -59,7 +58,6 @@ lazyinit = { workspace = true, optional = true }
 log.workspace = true
 memory_addr = { workspace = true, optional = true }
 percpu = { workspace = true, optional = true }
-pin-project = { version = "1.1", optional = true }
 weak-map = { version = "0.1", optional = true }
 
 [dev-dependencies]

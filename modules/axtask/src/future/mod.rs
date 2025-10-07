@@ -2,11 +2,14 @@
 
 use alloc::{sync::Arc, task::Wake};
 use core::{
+    fmt,
+    future::poll_fn,
     pin::pin,
     sync::atomic::{AtomicBool, Ordering},
     task::{Context, Poll, Waker},
 };
 
+use axerrno::AxError;
 use kernel_guard::NoPreemptIrqSave;
 
 use crate::{AxTaskRef, WeakAxTaskRef, current, current_run_queue, select_run_queue};
@@ -72,4 +75,37 @@ pub fn block_on<F: IntoFuture>(f: F) -> F::Output {
             Poll::Ready(output) => break output,
         }
     }
+}
+
+/// Error returned by [`interruptible`].
+#[derive(Debug, PartialEq, Eq)]
+pub struct Interrupted;
+
+impl fmt::Display for Interrupted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "interrupted")
+    }
+}
+
+impl core::error::Error for Interrupted {}
+
+impl From<Interrupted> for AxError {
+    fn from(_: Interrupted) -> Self {
+        AxError::Interrupted
+    }
+}
+
+/// Makes a future interruptible.
+pub async fn interruptible<F: IntoFuture>(f: F) -> Result<F::Output, Interrupted> {
+    let mut f = pin!(f.into_future());
+    let curr = current();
+    poll_fn(|cx| {
+        if curr.interrupted() {
+            Poll::Ready(Err(Interrupted))
+        } else {
+            curr.on_interrupt(cx.waker());
+            f.as_mut().poll(cx).map(Ok)
+        }
+    })
+    .await
 }
