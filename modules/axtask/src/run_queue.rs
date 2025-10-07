@@ -15,7 +15,6 @@ use axhal::percpu::this_cpu_id;
 use crate::{
     AxCpuMask, AxTaskRef, Scheduler, TaskInner, WaitQueue,
     task::{CurrentTask, TaskState},
-    wait_queue::WaitQueueGuard,
 };
 
 macro_rules! percpu_static {
@@ -394,7 +393,7 @@ impl<G: BaseGuard> CurrentRunQueueRef<'_, G> {
     ///     2. The caller must ensure that the current task is in the running state.
     ///     3. The caller must ensure that the current task is not the idle task.
     ///     4. The lock of the wait queue will be released explicitly after current task is pushed into it.
-    pub fn blocked_resched(&mut self, mut wq_guard: WaitQueueGuard) {
+    pub fn blocked_resched(&mut self) {
         let curr = &self.current_task;
         assert!(curr.is_running());
         assert!(!curr.is_idle());
@@ -402,11 +401,6 @@ impl<G: BaseGuard> CurrentRunQueueRef<'_, G> {
         // Mark the task as blocked, this has to be done before adding it to the wait queue
         // while holding the lock of the wait queue.
         curr.set_state(TaskState::Blocked);
-        curr.set_in_wait_queue(true);
-
-        wq_guard.push_back((*curr).clone());
-        // Drop the lock of wait queue explictly.
-        drop(wq_guard);
 
         // we must not block current task with preemption disabled.
         // Current expected preempt count is 1 for `NoPreemptIrqSave`.
@@ -419,21 +413,6 @@ impl<G: BaseGuard> CurrentRunQueueRef<'_, G> {
 
         debug!("task block: {}", curr.id_name());
         self.inner.resched();
-    }
-
-    #[cfg(feature = "irq")]
-    pub fn sleep_until(&mut self, deadline: axhal::time::TimeValue) {
-        let curr = &self.current_task;
-        debug!("task sleep: {}, deadline={:?}", curr.id_name(), deadline);
-        assert!(curr.is_running());
-        assert!(!curr.is_idle());
-
-        let now = axhal::time::wall_time();
-        if now < deadline {
-            crate::timers::set_alarm_wakeup(deadline, curr);
-            curr.set_state(TaskState::Blocked);
-            self.inner.resched();
-        }
     }
 
     pub fn set_current_priority(&mut self, prio: isize) -> bool {
