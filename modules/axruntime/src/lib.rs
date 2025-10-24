@@ -201,6 +201,8 @@ pub fn rust_main(cpu_id: usize, arg: usize) -> ! {
             use axdriver::prelude::BaseDriverOps;
 
             axfs_ng::ROOT_FS_CONTEXT.call_once(|| {
+                info!("Initialize filesystem... found block devices: {}", all_devices.block.len());
+                panic!("Filesystem support requires at least one block device.");
                 let dev = all_devices
                     .block
                     .take_one()
