@@ -21,6 +21,8 @@ display = ["dep:axdriver_display"]
 input = ["dep:axdriver_input"]
 vsock = ["axdriver_vsock"]
 
+crosvm = ["pci-mmio", "dep:hashbrown", "dep:axsync", "dep:spin"]
+
 # Enabled by features `virtio-*`
 virtio = ["dep:axdriver_virtio", "dep:axalloc", "dep:axhal", "dep:axconfig"]
 
@@ -83,5 +85,7 @@ rdrive = { version = "0.18", optional = true }
 smallvec = { version = "1.15", features = ["const_generics", "union"] }
 spin = { version = "0.10", optional = true }
 
+axsync = { workspace = true, optional = true }
+hashbrown = { workspace = true, optional = true }
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 arm-gic-driver = { version = "0.15", optional = true }
