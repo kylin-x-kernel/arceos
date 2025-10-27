@@ -16,6 +16,7 @@ documentation = "https://arceos-org.github.io/arceos/axdriver/index.html"
 dyn = []
 bus-mmio = []
 bus-pci = ["dep:axdriver_pci", "dep:axhal", "dep:axconfig"]
+pci-mmio = ["bus-pci"]
 block = ["axdriver_block"]
 display = ["axdriver_display"]
 input = ["axdriver_input"]

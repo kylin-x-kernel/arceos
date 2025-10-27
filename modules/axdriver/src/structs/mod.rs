@@ -84,6 +84,17 @@ impl<D> AxDeviceContainer<D> {
         self.0.pop()
     }
 
+    /// Takes `nth` devices out of the container (will remove them from the
+    /// container). Returns `None` if there are not enough devices.
+    #[allow(dead_code)]
+    pub fn take_nth(&mut self, n: usize) -> Option<D> {
+        if self.len() >= n {
+            Some(self.0.remove(n))
+        } else {
+            None
+        }
+    }
+
     /// Adds one device into the container.
     #[allow(dead_code)]
     pub(crate) fn push(&mut self, dev: D) {
