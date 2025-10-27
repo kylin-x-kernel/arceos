@@ -104,7 +104,6 @@ impl AllDevices {
 
         for bus in 0..=axconfig::devices::PCI_BUS_END as u8 {
             for (bdf, dev_info) in root.enumerate_bus(bus) {
-                let (status, command) = root.get_status_command(bdf);
                 debug!("PCI {}: {}", bdf, dev_info);
                 if dev_info.header_type != HeaderType::Standard {
                     continue;

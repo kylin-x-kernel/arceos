@@ -202,11 +202,25 @@ pub fn rust_main(cpu_id: usize, arg: usize) -> ! {
 
             axfs_ng::ROOT_FS_CONTEXT.call_once(|| {
                 info!("Initialize filesystem... found block devices: {}", all_devices.block.len());
-                panic!("Filesystem support requires at least one block device.");
-                let dev = all_devices
-                    .block
-                    .take_one()
-                    .expect("No block device found!");
+
+                let dev =  {
+                   #[cfg(feature = "crosvm" )]
+                    {
+                    // must have two block devices: secure and non-secure
+                    // we only use the second blk
+                    all_devices
+                        .block
+                        .take_nth(1)
+                        .expect("Less than two block devices found!")
+                    }
+                    #[cfg(not(feature = "crosvm" ))]
+                    {
+                        all_devices
+                        .block
+                        .take_one()
+                        .expect("No block device found!")
+                    }
+                };
                 info!("Block device: {}", dev.device_name());
                 let fs = axfs_ng::fs::new_default(dev).expect("Failed to initialize filesystem");
                 let mount = axfs_ng_vfs::Mountpoint::new_root(&fs);
