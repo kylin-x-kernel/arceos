@@ -26,6 +26,7 @@ vsock = ["net"]
 display = ["axdriver", "axdisplay"]
 input = ["axdriver", "axinput"]
 rtc = ["dep:chrono"]
+crosvm = ["vsock"]
 
 [dependencies]
 axalloc = { workspace = true, optional = true }
