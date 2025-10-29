@@ -92,5 +92,5 @@ axcpu = { git = "https://github.com/kylin-x-kernel/axcpu.git", branch ="main"}
 axfs-ng-vfs = { git = "https://github.com/Starry-OS/axfs-ng-vfs.git" }
 axio = { git = "https://github.com/Starry-OS/axio.git" }
 axpoll = { git = "https://github.com/Starry-OS/axpoll.git" }
-page_table_entry = { git = "https://github.com/kylin-x-kernel/page_table_multiarch.git", branch="crosvm"}
-page_table_multiarch = { git = "https://github.com/kylin-x-kernel/page_table_multiarch.git", branch="crosvm"}
+page_table_entry = { git = "https://github.com/kylin-x-kernel/page_table_multiarch.git", branch="main"}
+page_table_multiarch = { git = "https://github.com/kylin-x-kernel/page_table_multiarch.git", branch="main"}

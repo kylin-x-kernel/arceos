@@ -81,6 +81,11 @@ pub mod power {
     pub use axplat::power::system_off;
 }
 
+#[cfg(feature = "crosvm")]
+pub mod psci {
+    pub use axplat::psci::{share_dma_buffer, unshare_dma_buffer};
+}
+
 /// Trap handling.
 pub mod trap {
     pub use axcpu::trap::{IRQ, PAGE_FAULT, PageFaultFlags, register_trap_handler};

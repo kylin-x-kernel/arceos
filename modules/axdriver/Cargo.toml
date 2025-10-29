@@ -16,11 +16,14 @@ documentation = "https://arceos-org.github.io/arceos/axdriver/index.html"
 dyn = []
 bus-mmio = []
 bus-pci = ["dep:axdriver_pci", "dep:axhal", "dep:axconfig"]
+pci-mmio = ["bus-pci"]
 block = ["axdriver_block"]
 display = ["axdriver_display"]
 input = ["axdriver_input"]
 net = ["axdriver_net"]
 vsock = ["axdriver_vsock"]
+
+crosvm = ["pci-mmio", "dep:hashbrown", "dep:axsync", "dep:spin"]
 
 # Enabled by features `virtio-*`
 virtio = ["axdriver_virtio", "dep:axalloc", "dep:axhal", "dep:axconfig"]
@@ -49,6 +52,7 @@ axalloc = { workspace = true, optional = true }
 axconfig = { workspace = true, optional = true }
 axdma = { workspace = true, optional = true }
 axhal = { workspace = true, optional = true }
+axsync = { workspace = true, optional = true }
 
 axdriver_base = { git = "https://github.com/kylin-x-kernel/axdriver_crates.git" }
 axdriver_block = { git = "https://github.com/kylin-x-kernel/axdriver_crates.git", optional = true }
@@ -62,3 +66,5 @@ axdriver_virtio = { git = "https://github.com/kylin-x-kernel/axdriver_crates.git
 cfg-if = { workspace = true }
 crate_interface = { workspace = true }
 log = { workspace = true }
+hashbrown = { workspace = true, optional = true }
+spin = { workspace = true, optional = true }
