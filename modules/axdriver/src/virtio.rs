@@ -225,7 +225,7 @@ cfg_if! {
                 let frame_index = self.v2p_map.remove(&vaddr).unwrap();
                 assert!(self.bitmap[frame_index]);
                 self.bitmap[frame_index] = false;
-                let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
+                //let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
                 //trace!("free_page_to_pool: vaddr={:#x} paddr={:#x}  frame_index={}",
                 //    vaddr, paddr, frame_index);
             }
