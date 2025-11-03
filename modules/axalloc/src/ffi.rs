@@ -72,13 +72,24 @@ pub unsafe extern "C" fn calloc(nmemb: c_int, size: c_int) -> *mut c_void {
     ptr
 }
 
-// get_rand - 生成随机数（简化实现）
+static RAND_STATE: AtomicU32 = AtomicU32::new(123456789);
+
+// 随机数生成函数
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn get_rand() -> c_int {
-    // 简化实现：使用当前时间戳的低32位作为随机数
-    // 在实际使用中应该使用更安全的随机数生成器
-    let timestamp = 1;
-    timestamp as c_int
+pub unsafe extern "C" fn get_rand() -> u32 {
+    // 线性同余生成器参数
+    const A: u32 = 1664525;
+    const C: u32 = 1013904223;
+
+    // 使用原子操作来更新状态
+    let old_state = RAND_STATE.load(Ordering::Relaxed);
+    let new_state = old_state.wrapping_mul(A).wrapping_add(C);
+
+    // 尝试更新状态，如果失败则重试
+    let _ =
+        RAND_STATE.compare_exchange(old_state, new_state, Ordering::Relaxed, Ordering::Relaxed);
+
+    new_state
 }
 
 // __memcpy_chk - 带边界检查的内存拷贝
