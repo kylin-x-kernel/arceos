@@ -2,6 +2,7 @@ use core::{
     alloc::Layout,
     ffi::{c_void, c_int},
     ptr::{self, NonNull},
+    sync::atomic::{AtomicU32,Ordering},
 };
 
 use crate::global_allocator;
