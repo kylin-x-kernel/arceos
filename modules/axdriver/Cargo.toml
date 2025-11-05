@@ -3,34 +3,42 @@ name = "axdriver"
 version.workspace = true
 edition.workspace = true
 authors = [
-    "Yuekai Jia <equation618@gmail.com>",
-    "ChengXiang Qi <kuangjux@outlook.com>",
+  "Yuekai Jia <equation618@gmail.com>",
+  "ChengXiang Qi <kuangjux@outlook.com>",
 ]
 description = "ArceOS device drivers"
-license.workspace = true
-homepage.workspace = true
-repository = "https://github.com/arceos-org/arceos/tree/main/modules/axdriver"
 documentation = "https://arceos-org.github.io/arceos/axdriver/index.html"
+homepage.workspace = true
+license.workspace = true
+repository = "https://github.com/arceos-org/arceos/tree/main/modules/axdriver"
 
 [features]
-dyn = []
 bus-mmio = []
 bus-pci = ["dep:axdriver_pci", "dep:axhal", "dep:axconfig"]
 net = ["dep:axdriver_net"]
 block = ["dep:axdriver_block"]
 display = ["dep:axdriver_display"]
+dyn = [
+  "dep:rdrive",
+  "dep:arm-gic-driver",
+  "arm-gic-driver?/rdif",
+  "dep:rdif-intc",
+  "dep:rdif-block",
+  "dep:dma-api",
+  "dep:axklib",
+]
 
 # Enabled by features `virtio-*`
 virtio = ["dep:axdriver_virtio", "dep:axalloc", "dep:axhal", "dep:axconfig"]
 
 # various types of drivers
-virtio-blk = ["block", "virtio", "axdriver_virtio/block"]
-virtio-net = ["net", "virtio", "axdriver_virtio/net"]
-virtio-gpu = ["display", "virtio", "axdriver_virtio/gpu"]
-ramdisk = ["block", "axdriver_block/ramdisk"]
 bcm2835-sdhci = ["block", "axdriver_block/bcm2835-sdhci"]
-ixgbe = ["net", "axdriver_net/ixgbe", "dep:axalloc", "dep:axhal", "dep:axdma"]
 fxmac = ["net", "axdriver_net/fxmac", "dep:axalloc", "dep:axhal", "dep:axdma"]
+ixgbe = ["net", "axdriver_net/ixgbe", "dep:axalloc", "dep:axhal", "dep:axdma"]
+ramdisk = ["block", "axdriver_block/ramdisk"]
+virtio-blk = ["block", "virtio", "axdriver_virtio/block"]
+virtio-gpu = ["display", "virtio", "axdriver_virtio/gpu"]
+virtio-net = ["net", "virtio", "axdriver_virtio/net"]
 # more devices example: e1000 = ["net", "axdriver_net/e1000"]
 
 default = ["bus-pci"]
@@ -47,6 +55,18 @@ axdriver_display = { workspace = true, optional = true }
 axdriver_net = { workspace = true, optional = true }
 axdriver_pci = { workspace = true, optional = true }
 axdriver_virtio = { workspace = true, optional = true }
+axerrno.workspace = true
+axklib = { workspace = true, optional = true }
 cfg-if.workspace = true
 crate_interface.workspace = true
+dma-api = { version = "0.5", features = ["alloc"], optional = true }
+lazyinit.workspace = true
 log.workspace = true
+memory_addr.workspace = true
+rdif-block = { version = "0.6.2", optional = true }
+rdif-intc = { version = "0.12", optional = true }
+rdrive = { version = "0.18", optional = true }
+spin.workspace = true
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+arm-gic-driver = { version = "0.15", optional = true }

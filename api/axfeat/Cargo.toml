@@ -19,7 +19,7 @@ smp = ["axhal/smp", "axruntime/smp", "axtask?/smp", "kspin/smp"]
 fp-simd = ["axhal/fp-simd"]
 
 # Interrupts
-irq = ["axhal/irq", "axruntime/irq", "axtask?/irq"]
+irq = ["axhal/irq", "axruntime/irq", "axtask?/irq", "axklib-impl?/irq"]
 ipi = ["irq", "dep:axipi", "axhal/ipi", "axruntime/ipi"]
 
 # Custom or default platforms
@@ -31,6 +31,7 @@ alloc = ["axalloc", "axruntime/alloc"]
 alloc-tlsf = ["axalloc/tlsf"]
 alloc-slab = ["axalloc/slab"]
 alloc-buddy = ["axalloc/buddy"]
+alloc-level-1 = ["axalloc/level-1", "alloc"]
 page-alloc-64g = ["axalloc/page-alloc-64g"] # up to 64G memory capacity
 page-alloc-4g = ["axalloc/page-alloc-4g"] # up to 4G memory capacity
 paging = ["alloc", "axhal/paging", "axruntime/paging"]
@@ -42,10 +43,13 @@ multitask = ["alloc", "axtask/multitask", "axsync/multitask", "axruntime/multita
 sched-fifo = ["axtask/sched-fifo"]
 sched-rr = ["axtask/sched-rr", "irq"]
 sched-cfs = ["axtask/sched-cfs", "irq"]
+task-ext = ["axtask/task-ext"]
 
 # File system
 fs = ["alloc", "paging", "axdriver/virtio-blk", "dep:axfs", "axruntime/fs"] # TODO: try to remove "paging"
 myfs = ["axfs?/myfs"]
+ext4fs = ["axfs?/ext4fs"]
+fatfs = ["axfs?/fatfs"]
 
 # Networking
 net = ["alloc", "paging", "axdriver/virtio-net", "dep:axnet", "axruntime/net"]
@@ -57,6 +61,7 @@ display = ["alloc", "paging", "axdriver/virtio-gpu", "dep:axdisplay", "axruntime
 rtc = ["axhal/rtc", "axruntime/rtc"]
 
 # Device drivers
+driver-dyn = ["axruntime/driver-dyn","axdriver?/dyn", "dep:axklib-impl"]
 bus-mmio = ["axdriver?/bus-mmio"]
 bus-pci = ["axdriver?/bus-pci"]
 driver-ramdisk = ["axdriver?/ramdisk", "axfs?/use-ramdisk"]
@@ -83,6 +88,7 @@ axdriver = { workspace = true, optional = true }
 axfs = { workspace = true, optional = true }
 axhal.workspace = true
 axipi = { workspace = true, optional = true }
+axklib-impl = { workspace = true, optional = true }
 axlog.workspace = true
 axnet = { workspace = true, optional = true }
 axruntime.workspace = true
