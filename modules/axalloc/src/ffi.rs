@@ -2,9 +2,8 @@ use core::{
     alloc::Layout,
     ffi::{c_void, c_int},
     ptr::{self, NonNull},
-    sync::atomic::{AtomicU32,Ordering},
 };
-
+use core::ffi::CStr;
 use crate::global_allocator;
 
 // malloc - 分配内存并存储大小元数据
@@ -73,26 +72,6 @@ pub unsafe extern "C" fn calloc(nmemb: c_int, size: c_int) -> *mut c_void {
     ptr
 }
 
-static RAND_STATE: AtomicU32 = AtomicU32::new(123456789);
-
-// 随机数生成函数
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn get_rand() -> u32 {
-    // 线性同余生成器参数
-    const A: u32 = 1664525;
-    const C: u32 = 1013904223;
-
-    // 使用原子操作来更新状态
-    let old_state = RAND_STATE.load(Ordering::Relaxed);
-    let new_state = old_state.wrapping_mul(A).wrapping_add(C);
-
-    // 尝试更新状态，如果失败则重试
-    let _ =
-        RAND_STATE.compare_exchange(old_state, new_state, Ordering::Relaxed, Ordering::Relaxed);
-
-    new_state
-}
-
 // __memcpy_chk - 带边界检查的内存拷贝
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __memcpy_chk(
@@ -111,4 +90,21 @@ pub unsafe extern "C" fn __memcpy_chk(
     
     ptr::copy_nonoverlapping(src as *const u8, dest as *mut u8, len as usize);
     dest
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn DMSG(msg: *const core::ffi::c_char) {
+    unsafe {
+        // 将C字符串指针转换为Rust的&CStr
+        let c_str = CStr::from_ptr(msg);
+        // 尝试将&CStr转换为&str，如果失败则使用默认消息
+        match c_str.to_str() {
+            Ok(s) => {
+                warn!("DMSG: {}", s); // 使用您已有的warn!宏输出
+            }
+            Err(_) => {
+                warn!("DMSG: Received invalid UTF-8 string");
+            }
+        }
+    }
 }
