@@ -91,20 +91,3 @@ pub unsafe extern "C" fn __memcpy_chk(
     ptr::copy_nonoverlapping(src as *const u8, dest as *mut u8, len as usize);
     dest
 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn DMSG(msg: *const core::ffi::c_char) {
-    unsafe {
-        // 将C字符串指针转换为Rust的&CStr
-        let c_str = CStr::from_ptr(msg);
-        // 尝试将&CStr转换为&str，如果失败则使用默认消息
-        match c_str.to_str() {
-            Ok(s) => {
-                warn!("DMSG: {}", s); // 使用您已有的warn!宏输出
-            }
-            Err(_) => {
-                warn!("DMSG: Received invalid UTF-8 string");
-            }
-        }
-    }
-}

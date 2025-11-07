@@ -12,7 +12,7 @@ extern crate log;
 
 extern crate alloc;
 
-#[cfg(feature = "crosvm")]
+#[cfg(feature = "dice")]
 mod ffi;
 mod page;
 
