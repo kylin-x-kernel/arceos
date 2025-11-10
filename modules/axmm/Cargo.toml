@@ -2,7 +2,7 @@
 name = "axmm"
 version.workspace = true
 edition.workspace = true
-authors = ["Yuekai Jia <equation618@gmail.com>"]
+authors.workspace = true
 description = "ArceOS virtual memory management module"
 license.workspace = true
 homepage.workspace = true

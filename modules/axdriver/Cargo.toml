@@ -5,6 +5,7 @@ edition.workspace = true
 authors = [
     "Yuekai Jia <equation618@gmail.com>",
     "ChengXiang Qi <kuangjux@outlook.com>",
+    "KylinSoft Co., Ltd. <https://www.kylinos.cn/>"
 ]
 description = "ArceOS device drivers"
 license.workspace = true
