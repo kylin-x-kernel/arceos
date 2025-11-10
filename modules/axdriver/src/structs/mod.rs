@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// Copyright (C) 2025 Yuekai Jia <equation618@gmail.com>
+// Copyright (C) 2025 ChengXiang Qi <kuangjux@outlook.com>
+// See LICENSE for license details.
+// 
+// This file has been modified by KylinSoft on 2025.
+
 #[cfg_attr(feature = "dyn", path = "dyn.rs")]
 #[cfg_attr(not(feature = "dyn"), path = "static.rs")]
 mod imp;
