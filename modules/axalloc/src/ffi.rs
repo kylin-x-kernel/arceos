@@ -3,7 +3,6 @@ use core::{
     ffi::{c_void, c_int},
     ptr::{self, NonNull},
 };
-use core::ffi::CStr;
 use crate::global_allocator;
 
 // malloc - 分配内存并存储大小元数据
