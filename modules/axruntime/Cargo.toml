@@ -2,7 +2,10 @@
 name = "axruntime"
 version.workspace = true
 edition.workspace = true
-authors = ["Yuekai Jia <equation618@gmail.com>"]
+authors = [
+    "Yuekai Jia <equation618@gmail.com>", 
+    "KylinSoft Co., Ltd. <https://www.kylinos.cn/>"
+    ]
 description = "Runtime library of ArceOS"
 license.workspace = true
 homepage.workspace = true
