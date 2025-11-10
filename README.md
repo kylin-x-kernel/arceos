@@ -215,3 +215,8 @@ axhal = { git = "https://github.com/arceos-org/arceos.git", tag = "v0.2.0" } # m
 ## Design
 
 ![](doc/figures/ArceOS.svg)
+
+
+## License
+
+This project is now released under the Apache License 2.0. All modifications and new contributions in our project are distributed under the same license. See the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files for details.

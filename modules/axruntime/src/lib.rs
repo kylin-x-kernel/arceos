@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// Copyright (C) 2025 Yuekai Jia <equation618@gmail.com>
+// See LICENSE for license details.
+// 
+// This file has been modified by KylinSoft on 2025.
+
 //! Runtime library of [ArceOS](https://github.com/arceos-org/arceos).
 //!
 //! Any application uses ArceOS should link this library. It does some
