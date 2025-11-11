@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// Copyright (C) 2025 Yuekai Jia <equation618@gmail.com>
+// See LICENSE for license details.
+// 
+// This file has been modified by KylinSoft on 2025.
+
 //! [ArceOS] hardware abstraction layer, provides unified APIs for
 //! platform-specific operations.
 //!
@@ -79,6 +86,11 @@ pub mod power {
     #[cfg(feature = "smp")]
     pub use axplat::power::cpu_boot;
     pub use axplat::power::system_off;
+}
+
+#[cfg(feature = "crosvm")]
+pub mod psci {
+    pub use axplat::psci::{share_dma_buffer, unshare_dma_buffer};
 }
 
 /// Trap handling.

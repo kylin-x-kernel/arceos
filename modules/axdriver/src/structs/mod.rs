@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// Copyright (C) 2025 Yuekai Jia <equation618@gmail.com>
+// Copyright (C) 2025 ChengXiang Qi <kuangjux@outlook.com>
+// See LICENSE for license details.
+// 
+// This file has been modified by KylinSoft on 2025.
+
 #[cfg_attr(feature = "dyn", path = "dyn.rs")]
 #[cfg_attr(not(feature = "dyn"), path = "static.rs")]
 mod imp;
@@ -82,6 +90,17 @@ impl<D> AxDeviceContainer<D> {
     /// container).
     pub fn take_one(&mut self) -> Option<D> {
         self.0.pop()
+    }
+
+    /// Takes `nth` devices out of the container (will remove them from the
+    /// container). Returns `None` if there are not enough devices.
+    #[allow(dead_code)]
+    pub fn take_nth(&mut self, n: usize) -> Option<D> {
+        if self.len() >= n {
+            Some(self.0.remove(n))
+        } else {
+            None
+        }
     }
 
     /// Adds one device into the container.

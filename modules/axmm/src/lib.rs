@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// Copyright (C) 2025 Yuekai Jia <equation618@gmail.com>
+// See LICENSE for license details.
+// 
+// This file has been modified by KylinSoft on 2025.
+
 //! [ArceOS](https://github.com/arceos-org/arceos) memory management module.
 
 #![no_std]
@@ -85,6 +92,8 @@ pub fn init_memory_management() {
     debug!("kernel address space init OK: {:#x?}", kernel_aspace);
     KERNEL_ASPACE.init_once(SpinNoIrq::new(kernel_aspace));
     unsafe { axhal::asm::write_kernel_page_table(kernel_page_table_root()) };
+    // flush all tlb
+    axhal::asm::flush_tlb(None);
 }
 
 /// Initializes kernel paging for secondary CPUs.

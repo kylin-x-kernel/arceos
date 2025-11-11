@@ -12,6 +12,8 @@ extern crate log;
 
 extern crate alloc;
 
+#[cfg(feature = "dice")]
+mod ffi;
 mod page;
 
 use core::{

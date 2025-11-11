@@ -1,9 +1,19 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// Copyright (C) 2025 Yuekai Jia <equation618@gmail.com>
+// Copyright (C) 2025 ChengXiang Qi <kuangjux@outlook.com>
+// See LICENSE for license details.
+// 
+// This file has been modified by KylinSoft on 2025.
+
 use core::{marker::PhantomData, ptr::NonNull};
 
 use axalloc::{UsageKind, global_allocator};
 use axdriver_base::{BaseDriverOps, DevResult, DeviceType};
 use axdriver_virtio::{BufferDirection, PhysAddr, VirtIoHal};
 use axhal::mem::{phys_to_virt, virt_to_phys};
+#[cfg(feature = "crosvm")]
+use axhal::psci::{share_dma_buffer, unshare_dma_buffer};
 use cfg_if::cfg_if;
 
 use crate::{AxDeviceEnum, drivers::DriverProbe};
@@ -171,6 +181,66 @@ impl<D: VirtIoDevMeta> DriverProbe for VirtIoDriver<D> {
 
 pub struct VirtIoHalImpl;
 
+cfg_if! {
+    if #[cfg(feature = "crosvm")] {
+        use hashbrown::HashMap;
+        use axsync::Mutex;
+        use spin::Lazy;
+        const PAGE_SIZE: usize = 0x1000; // define page size as 4KB
+        const VIRTIO_QUEUE_SIZE: usize = 32;
+
+        struct VirtIoFramePool
+        {
+            pool_paddr: PhysAddr,
+            bitmap: [bool; VIRTIO_QUEUE_SIZE],
+            v2p_map: HashMap<usize, usize>,
+        }
+
+        static VIRTIO_FRAME_POOL: Lazy<Mutex<VirtIoFramePool>> = Lazy::new(|| {
+            let vaddr = global_allocator().alloc_pages(VIRTIO_QUEUE_SIZE,0x1000,UsageKind::Dma).expect("virtio frame pool alloc failed");
+            let paddr = virt_to_phys(vaddr.into());
+            share_dma_buffer(paddr.as_usize(), VIRTIO_QUEUE_SIZE * PAGE_SIZE);
+            let pool = VirtIoFramePool {
+                pool_paddr: paddr.into(),
+                bitmap: [false; VIRTIO_QUEUE_SIZE],
+                v2p_map: HashMap::new(),
+            };
+            Mutex::new(pool)
+        });
+
+        impl VirtIoFramePool {
+            fn alloc_page_from_pool(&mut self, vaddr: usize) -> PhysAddr {
+                let frame_index = {
+                    let mut fram_index = usize::MAX;
+                    for i in 0..VIRTIO_QUEUE_SIZE {
+                        if !self.bitmap[i] {
+                            fram_index = i;
+                            self.bitmap[i] = true;
+                            break;
+                        }
+                    }
+                    assert!(fram_index != usize::MAX);
+                    fram_index
+                };
+                self.v2p_map.insert(vaddr, frame_index);
+                let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
+                //trace!("alloc_page_from_pool: vaddr={:#x} -> paddr={:#x} frame_index={}",
+                //    vaddr, paddr, frame_index);
+                paddr
+            }
+
+            fn free_page_to_pool(&mut self, vaddr: usize) {
+                let frame_index = self.v2p_map.remove(&vaddr).unwrap();
+                assert!(self.bitmap[frame_index]);
+                self.bitmap[frame_index] = false;
+                //let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
+                //trace!("free_page_to_pool: vaddr={:#x} paddr={:#x}  frame_index={}",
+                //    vaddr, paddr, frame_index);
+            }
+        }
+    }
+}
+
 unsafe impl VirtIoHal for VirtIoHalImpl {
     fn dma_alloc(pages: usize, _direction: BufferDirection) -> (PhysAddr, NonNull<u8>) {
         let vaddr = if let Ok(vaddr) = global_allocator().alloc_pages(pages, 0x1000, UsageKind::Dma)
@@ -181,11 +251,21 @@ unsafe impl VirtIoHal for VirtIoHalImpl {
         };
         let paddr = virt_to_phys(vaddr.into());
         let ptr = NonNull::new(vaddr as _).unwrap();
+
+        #[cfg(feature = "crosvm")]
+        {
+            share_dma_buffer(paddr.as_usize(), pages * 0x1000);
+        }
         (paddr.as_usize(), ptr)
     }
 
-    unsafe fn dma_dealloc(_paddr: PhysAddr, vaddr: NonNull<u8>, pages: usize) -> i32 {
+    #[allow(unused_variables)]
+    unsafe fn dma_dealloc(paddr: PhysAddr, vaddr: NonNull<u8>, pages: usize) -> i32 {
         global_allocator().dealloc_pages(vaddr.as_ptr() as usize, pages, UsageKind::Dma);
+        #[cfg(feature = "crosvm")]
+        {
+            unshare_dma_buffer(paddr as usize, pages * 0x1000);
+        }
         0
     }
 
@@ -194,12 +274,52 @@ unsafe impl VirtIoHal for VirtIoHalImpl {
         NonNull::new(phys_to_virt(paddr.into()).as_mut_ptr()).unwrap()
     }
 
+    #[allow(unused_variables)]
     #[inline]
     unsafe fn share(buffer: NonNull<[u8]>, _direction: BufferDirection) -> PhysAddr {
-        let vaddr = buffer.as_ptr() as *mut u8 as usize;
-        virt_to_phys(vaddr.into()).into()
+        #[cfg(feature = "crosvm")]
+        {
+            let vaddr = buffer.as_ptr() as *mut u8 as usize;
+            let len = buffer.len();
+            assert!(len <= 0x1000, "only support share buffer size <= 4KB");
+            let paddr = {
+                let mut pool = VIRTIO_FRAME_POOL.lock();
+                pool.alloc_page_from_pool(vaddr)
+            };
+
+            let data = unsafe {
+                let data = phys_to_virt(paddr.into()).as_usize() as *mut u8;
+                core::slice::from_raw_parts_mut(data, len)
+            };
+            data.clone_from_slice(unsafe { &buffer.as_ref() });
+            paddr
+        }
+
+        #[cfg(not(feature = "crosvm"))]
+        {
+            let vaddr = buffer.as_ptr() as *mut u8 as usize;
+            virt_to_phys(vaddr.into()).into()
+        }
     }
 
     #[inline]
-    unsafe fn unshare(_paddr: PhysAddr, _buffer: NonNull<[u8]>, _direction: BufferDirection) {}
+    #[allow(unused_variables)]
+    unsafe fn unshare(paddr: PhysAddr, buffer: NonNull<[u8]>, _direction: BufferDirection) {
+        #[cfg(feature = "crosvm")]
+        {
+            let mut buffer = buffer;
+            let vaddr = buffer.as_ptr() as *mut u8 as usize;
+            let len = buffer.len();
+            {
+                let mut pool = VIRTIO_FRAME_POOL.lock();
+                pool.free_page_to_pool(vaddr);
+            }
+
+            let data = unsafe {
+                let data = phys_to_virt(paddr.into()).as_usize() as *mut u8;
+                core::slice::from_raw_parts(data, len)
+            };
+            unsafe { buffer.as_mut().clone_from_slice(&data) };
+        }
+    }
 }
