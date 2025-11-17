@@ -63,7 +63,7 @@ impl FatFilesystem {
 }
 
 impl FatFilesystem {
-    pub(crate) fn lock(&self) -> MutexGuard<FatFilesystemInner> {
+    pub(crate) fn lock(&self) -> MutexGuard<'_, FatFilesystemInner> {
         self.inner.lock()
     }
 }
