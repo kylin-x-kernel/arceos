@@ -24,7 +24,7 @@
 //! All the features are optional and disabled by default.
 
 #![cfg_attr(not(test), no_std)]
-#![feature(doc_auto_cfg)]
+#![feature(doc_cfg)]
 
 #[macro_use]
 extern crate axlog;

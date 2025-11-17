@@ -27,6 +27,7 @@ struct Neighbor {
 }
 
 pub struct EthernetDevice {
+    #[allow(dead_code)]
     name: String,
     inner: AxNetDevice,
     neighbors: HashMap<IpAddress, Option<Neighbor>>,

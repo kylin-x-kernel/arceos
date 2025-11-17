@@ -46,7 +46,7 @@ impl StateLock {
         self.0.store(state as u8, Ordering::Release);
     }
 
-    pub fn lock(&self, expect: State) -> Result<StateGuard, State> {
+    pub fn lock(&self, expect: State) -> Result<StateGuard<'_>, State> {
         match self.0.compare_exchange(
             expect as u8,
             State::Busy as u8,

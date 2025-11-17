@@ -13,7 +13,6 @@
 //! [smoltcp]: https://github.com/smoltcp-rs/smoltcp
 
 #![no_std]
-#![feature(ip_from)]
 #![feature(maybe_uninit_slice)]
 
 #[macro_use]
