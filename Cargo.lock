@@ -261,7 +261,7 @@ dependencies = [
 [[package]]
 name = "axcpu"
 version = "0.2.2"
-source = "git+https://github.com/Starry-OS/axcpu.git#53455db3978450785e38b983e2da1a1fd1d2a685"
+source = "git+https://github.com/kylin-x-kernel/axcpu.git?branch=main#9b9441796ee31db44ddd9d60335266ba7e07f394"
 dependencies = [
  "aarch64-cpu 10.0.0",
  "axbacktrace",
@@ -321,20 +321,23 @@ dependencies = [
  "axdriver_virtio",
  "axdriver_vsock",
  "axhal",
+ "axsync",
  "cfg-if",
  "crate_interface",
+ "hashbrown",
  "log",
+ "spin 0.10.0",
 ]
 
 [[package]]
 name = "axdriver_base"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 
 [[package]]
 name = "axdriver_block"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "axdriver_base",
  "bcm2835-sdhci",
@@ -346,7 +349,7 @@ dependencies = [
 [[package]]
 name = "axdriver_display"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "axdriver_base",
 ]
@@ -354,7 +357,7 @@ dependencies = [
 [[package]]
 name = "axdriver_input"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "axdriver_base",
  "strum",
@@ -363,7 +366,7 @@ dependencies = [
 [[package]]
 name = "axdriver_net"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "axdriver_base",
  "fxmac_rs",
@@ -375,7 +378,7 @@ dependencies = [
 [[package]]
 name = "axdriver_pci"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "virtio-drivers",
 ]
@@ -383,7 +386,7 @@ dependencies = [
 [[package]]
 name = "axdriver_virtio"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "axdriver_base",
  "axdriver_block",
@@ -398,7 +401,7 @@ dependencies = [
 [[package]]
 name = "axdriver_vsock"
 version = "0.1.2"
-source = "git+https://github.com/Starry-OS/axdriver_crates.git?rev=a263470#a2634709194f2fd595a52b660d7d43df7c32570e"
+source = "git+https://github.com/kylin-x-kernel/axdriver_crates.git#a2634709194f2fd595a52b660d7d43df7c32570e"
 dependencies = [
  "axdriver_base",
  "log",
