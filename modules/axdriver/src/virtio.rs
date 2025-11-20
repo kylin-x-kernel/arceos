@@ -37,7 +37,7 @@ cfg_if! {
             type Device = axdriver_virtio::VirtIoNetDev<VirtIoHalImpl, VirtIoTransport, 64>;
 
             fn try_new(transport: VirtIoTransport) -> DevResult<AxDeviceEnum> {
-                Ok(AxDeviceEnum::from_net(Self::Device::try_new(transport)?))
+                Ok(AxDeviceEnum::from_net(Self::Device::try_new(transport, Some(0xea))?))
             }
         }
     }

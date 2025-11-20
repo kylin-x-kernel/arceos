@@ -222,6 +222,20 @@ dependencies = [
 
 [[package]]
 name = "arm-gic-driver"
+version = "0.14.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a886a953642fbf21eb5928c49a05f021fae007219ae8cb2dafbf403dfeba974a"
+dependencies = [
+ "aarch64-cpu 10.0.0",
+ "bitflags 2.9.2",
+ "enum_dispatch",
+ "log",
+ "rdif-intc 0.11.0",
+ "tock-registers 0.9.0",
+]
+
+[[package]]
+name = "arm-gic-driver"
 version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f251a1a74133f802b55eaf5e340107b0024457aa9b2ac3c72074501bfa8509a5"
@@ -231,7 +245,7 @@ dependencies = [
  "enum_dispatch",
  "log",
  "paste",
- "rdif-intc",
+ "rdif-intc 0.12.1",
  "tock-registers 0.9.0",
 ]
 
@@ -425,7 +439,7 @@ dependencies = [
  "log",
  "memory_addr",
  "rdif-block",
- "rdif-intc",
+ "rdif-intc 0.12.1",
  "rdrive",
  "spin 0.10.0",
 ]
@@ -433,12 +447,12 @@ dependencies = [
 [[package]]
 name = "axdriver_base"
 version = "0.1.2"
-source = "git+https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.2#84eb2170f865e6fa29b78995a86f4fcdcede63df"
+source = "git+https://github.com/starry-mix-rk3588/axdriver_crates.git?rev=010e924#010e9245c1bf8336fe9029d64a2bfa9fdfcac284"
 
 [[package]]
 name = "axdriver_block"
 version = "0.1.2"
-source = "git+https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.2#84eb2170f865e6fa29b78995a86f4fcdcede63df"
+source = "git+https://github.com/starry-mix-rk3588/axdriver_crates.git?rev=010e924#010e9245c1bf8336fe9029d64a2bfa9fdfcac284"
 dependencies = [
  "axdriver_base",
  "bcm2835-sdhci",
@@ -448,7 +462,7 @@ dependencies = [
 [[package]]
 name = "axdriver_display"
 version = "0.1.2"
-source = "git+https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.2#84eb2170f865e6fa29b78995a86f4fcdcede63df"
+source = "git+https://github.com/starry-mix-rk3588/axdriver_crates.git?rev=010e924#010e9245c1bf8336fe9029d64a2bfa9fdfcac284"
 dependencies = [
  "axdriver_base",
 ]
@@ -456,19 +470,21 @@ dependencies = [
 [[package]]
 name = "axdriver_net"
 version = "0.1.2"
-source = "git+https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.2#84eb2170f865e6fa29b78995a86f4fcdcede63df"
+source = "git+https://github.com/starry-mix-rk3588/axdriver_crates.git?rev=010e924#010e9245c1bf8336fe9029d64a2bfa9fdfcac284"
 dependencies = [
  "axdriver_base",
+ "crate_interface",
  "fxmac_rs",
  "ixgbe-driver",
  "log",
+ "realtek-drivers",
  "spin 0.9.8",
 ]
 
 [[package]]
 name = "axdriver_pci"
 version = "0.1.2"
-source = "git+https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.2#84eb2170f865e6fa29b78995a86f4fcdcede63df"
+source = "git+https://github.com/starry-mix-rk3588/axdriver_crates.git?rev=010e924#010e9245c1bf8336fe9029d64a2bfa9fdfcac284"
 dependencies = [
  "virtio-drivers",
 ]
@@ -476,12 +492,13 @@ dependencies = [
 [[package]]
 name = "axdriver_virtio"
 version = "0.1.2"
-source = "git+https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.2#84eb2170f865e6fa29b78995a86f4fcdcede63df"
+source = "git+https://github.com/starry-mix-rk3588/axdriver_crates.git?rev=010e924#010e9245c1bf8336fe9029d64a2bfa9fdfcac284"
 dependencies = [
  "axdriver_base",
  "axdriver_block",
  "axdriver_display",
  "axdriver_net",
+ "log",
  "virtio-drivers",
 ]
 
@@ -713,11 +730,49 @@ dependencies = [
  "axconfig-macros",
  "axcpu",
  "axplat",
- "axplat-aarch64-peripherals",
+ "axplat-aarch64-peripherals 0.2.0 (git+https://github.com/Starry-OS/axplat_crates.git)",
  "dw_apb_uart",
  "kspin",
  "log",
  "page_table_entry",
+]
+
+[[package]]
+name = "axplat-aarch64-opi5p"
+version = "0.2.0"
+source = "git+https://github.com/starry-mix-rk3588/axplat-opi5p.git#28d95f3b57336b31c96f444fce6bc74457f291ac"
+dependencies = [
+ "aarch64-cpu 10.0.0",
+ "arm-gic-driver 0.14.9",
+ "axconfig-macros",
+ "axcpu",
+ "axplat",
+ "axplat-aarch64-peripherals 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "int_ratio",
+ "kspin",
+ "log",
+ "memory_addr",
+ "page_table_entry",
+]
+
+[[package]]
+name = "axplat-aarch64-peripherals"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a9a6548290a150059eb2ae015dc58d9b3d652461760327b95a490666129974c"
+dependencies = [
+ "aarch64-cpu 10.0.0",
+ "arm-gic-driver 0.15.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "arm_pl011",
+ "arm_pl031",
+ "axcpu",
+ "axplat",
+ "int_ratio",
+ "kspin",
+ "lazyinit",
+ "log",
+ "page_table_entry",
+ "spin 0.10.0",
 ]
 
 [[package]]
@@ -747,7 +802,7 @@ dependencies = [
  "axconfig-macros",
  "axcpu",
  "axplat",
- "axplat-aarch64-peripherals",
+ "axplat-aarch64-peripherals 0.2.0 (git+https://github.com/Starry-OS/axplat_crates.git)",
  "log",
  "page_table_entry",
 ]
@@ -760,7 +815,7 @@ dependencies = [
  "axconfig-macros",
  "axcpu",
  "axplat",
- "axplat-aarch64-peripherals",
+ "axplat-aarch64-peripherals 0.2.0 (git+https://github.com/Starry-OS/axplat_crates.git)",
  "log",
  "page_table_entry",
 ]
@@ -774,7 +829,7 @@ dependencies = [
  "axconfig-macros",
  "axcpu",
  "axplat",
- "axplat-aarch64-peripherals",
+ "axplat-aarch64-peripherals 0.2.0 (git+https://github.com/Starry-OS/axplat_crates.git)",
  "log",
  "page_table_entry",
 ]
@@ -2110,6 +2165,18 @@ dependencies = [
 
 [[package]]
 name = "rdif-base"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6953f438bbbdf58e55513c31e70fa0f85daba2927e8a59130a04608141bb552"
+dependencies = [
+ "as-any",
+ "async-trait",
+ "rdif-def",
+ "thiserror",
+]
+
+[[package]]
+name = "rdif-base"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f8c32d8cbc18633a412130719b07d31135215d1715ac48fc3888ca835a811ba"
@@ -2130,7 +2197,7 @@ dependencies = [
  "cfg-if",
  "dma-api",
  "futures",
- "rdif-base",
+ "rdif-base 0.7.0",
  "spin_on",
  "thiserror",
 ]
@@ -2146,12 +2213,23 @@ dependencies = [
 
 [[package]]
 name = "rdif-intc"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4e7622f78dc9b40958500119553f3c15b9bb9829002d87d0f4b114ebe302a40"
+dependencies = [
+ "cfg-if",
+ "rdif-base 0.6.0",
+ "thiserror",
+]
+
+[[package]]
+name = "rdif-intc"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "170ec813e6cf4d1e5fa53fa8fed0fadc7aaab96683d4f1d44c602a6109931eb4"
 dependencies = [
  "cfg-if",
- "rdif-base",
+ "rdif-base 0.7.0",
  "thiserror",
 ]
 
@@ -2162,7 +2240,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60c6e8dea6d432b2c03bc3f4238dc59a276aacac6f688a937351e7a313918738"
 dependencies = [
  "pci_types",
- "rdif-base",
+ "rdif-base 0.7.0",
  "thiserror",
 ]
 
@@ -2176,7 +2254,7 @@ dependencies = [
  "log",
  "paste",
  "pcie",
- "rdif-base",
+ "rdif-base 0.7.0",
  "rdif-pcie",
  "rdrive-macros",
  "spin 0.10.0",
@@ -2192,6 +2270,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "realtek"
+version = "0.1.0"
+dependencies = [
+ "axplat-aarch64-opi5p",
+ "axplat-aarch64-qemu-virt",
+ "axstd",
+ "cfg-if",
+]
+
+[[package]]
+name = "realtek-drivers"
+version = "0.1.0"
+source = "git+https://github.com/drivercraft/realtek-drivers.git#9c0f2dd8c2d4364c8bc77bb703e145d11ddb7b05"
+dependencies = [
+ "crate_interface",
+ "log",
+ "memory_addr",
 ]
 
 [[package]]

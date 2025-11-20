@@ -6,6 +6,7 @@
 *.o
 *.elf
 *.bin
+*.uimg
 qemu.log
 rusty-tags.vi
 /.project*

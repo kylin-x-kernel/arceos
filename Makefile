@@ -72,8 +72,8 @@ VFIO_PCI ?=
 VHOST ?= n
 
 # Network options
-IP ?= 10.0.2.15
-GW ?= 10.0.2.2
+IP ?= 192.168.22.102
+GW ?= 192.168.22.101
 
 # App type
 ifeq ($(wildcard $(APP)),)
@@ -173,6 +173,10 @@ oldconfig:
 	$(call oldconfig)
 
 build: $(OUT_DIR) $(FINAL_IMG)
+
+tftp:
+	@echo "Copying $(FINAL_IMG) to /data/docker/tftpboot/data/kernel.uimg ..."
+	cp $(FINAL_IMG) /data/docker/tftpboot/data/kernel.uimg
 
 disasm:
 	$(OBJDUMP) $(OUT_ELF) | less

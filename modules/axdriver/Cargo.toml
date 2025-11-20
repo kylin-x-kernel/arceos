@@ -39,6 +39,7 @@ ramdisk = ["block", "axdriver_block/ramdisk"]
 virtio-blk = ["block", "virtio", "axdriver_virtio/block"]
 virtio-gpu = ["display", "virtio", "axdriver_virtio/gpu"]
 virtio-net = ["net", "virtio", "axdriver_virtio/net"]
+realtek = ["net", "axdriver_net/realtek", "dep:axalloc", "dep:axhal"]
 # more devices example: e1000 = ["net", "axdriver_net/e1000"]
 
 default = ["bus-pci"]

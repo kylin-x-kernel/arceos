@@ -30,6 +30,7 @@ members = [
     "examples/httpclient",
     "examples/httpserver",
     "examples/shell",
+    "examples/realtek",
 ]
 
 [workspace.package]
@@ -111,3 +112,11 @@ axplat-loongarch64-qemu-virt = { git = "https://github.com/Starry-OS/axplat_crat
 axplat-riscv64-qemu-virt = { git = "https://github.com/Starry-OS/axplat_crates.git" }
 axplat-x86-pc = { git = "https://github.com/Starry-OS/axplat_crates.git" }
 axpoll = { git = "https://github.com/Starry-OS/axpoll.git" }
+
+[patch."https://github.com/arceos-org/axdriver_crates.git"]
+axdriver_base = { git = "https://github.com/starry-mix-rk3588/axdriver_crates.git", rev = "010e924" }
+axdriver_block = { git = "https://github.com/starry-mix-rk3588/axdriver_crates.git", rev = "010e924" }
+axdriver_display = { git = "https://github.com/starry-mix-rk3588/axdriver_crates.git", rev = "010e924" }
+axdriver_net = { git = "https://github.com/starry-mix-rk3588/axdriver_crates.git", rev = "010e924" }
+axdriver_pci = { git = "https://github.com/starry-mix-rk3588/axdriver_crates.git", rev = "010e924" }
+axdriver_virtio = { git = "https://github.com/starry-mix-rk3588/axdriver_crates.git", rev = "010e924" }
