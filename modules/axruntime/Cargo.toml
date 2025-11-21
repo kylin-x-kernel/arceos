@@ -45,7 +45,8 @@ axlog = { workspace = true }
 axmm = { workspace = true, optional = true }
 axnet = { workspace = true, optional = true }
 axtask = { workspace = true, optional = true }
-
+axplat-aarch64-peripherals = { version = "0.2.0", default-features = false, features = ["gicv2"] }
+axwatchdog = "0.1.0"
 axfs-ng-vfs = { workspace = true, optional = true }
 axplat = { workspace = true }
 chrono = { workspace = true, optional = true }

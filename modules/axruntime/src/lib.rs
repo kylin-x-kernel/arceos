@@ -335,6 +335,12 @@ fn init_interrupt() {
         axtask::on_timer_tick();
     });
 
+    axhal::irq::register(axconfig::devices::PMI_IRQ, |_| {
+        axplat_aarch64_peripherals::pmu::clear_all_overflows();
+        axplat_aarch64_peripherals::pmu::reset_counter();
+        axwatchdog::nmi::handle();
+    });
+
     #[cfg(feature = "ipi")]
     axhal::irq::register(axhal::irq::IPI_IRQ, |_| {
         axipi::ipi_handler();
