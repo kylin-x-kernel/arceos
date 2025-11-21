@@ -337,7 +337,7 @@ fn init_interrupt() {
 
     axhal::irq::register(axconfig::devices::PMI_IRQ, |_| {
         axplat_aarch64_peripherals::pmu::clear_all_overflows();
-        axplat_aarch64_peripherals::pmu::reset_counter();
+        axplat_aarch64_peripherals::pmu::reset_counter(0xf0000000);
         axwatchdog::nmi::handle();
     });
 
