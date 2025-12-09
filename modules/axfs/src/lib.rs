@@ -19,7 +19,6 @@ pub use highlevel::*;
 pub fn init_filesystems(mut block_devs: AxDeviceContainer<AxBlockDevice>) {
     info!("Initialize filesystem subsystem...");
 
-    let dev = block_devs.take_one().expect("No block device found!");
     let dev =  {
         #[cfg(feature = "crosvm" )]
         {
