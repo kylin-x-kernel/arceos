@@ -30,7 +30,7 @@ input = ["dep:axdriver", "dep:axinput"]
 vsock = ["net", "dep:axdriver"]
 rtc = []
 driver-dyn = ["axdriver/dyn"]
-crosvm = ["vsock", "dep:axfs/crosvm"]
+crosvm = ["vsock", "axfs/crosvm"]
 
 [dependencies]
 axalloc = { workspace = true, optional = true }
