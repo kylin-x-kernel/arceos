@@ -11,7 +11,7 @@
 extern crate log;
 extern crate alloc;
 
-#[cfg(feature = "dice")]
+#[cfg(any(feature = "dice", feature = "tee"))]
 mod ffi;
 
 use core::{
