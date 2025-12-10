@@ -6,15 +6,23 @@
 //
 // This file has been modified by KylinSoft on 2025.
 
-use core::marker::PhantomData;
-use core::ptr::NonNull;
+use core::{marker::PhantomData, ptr::NonNull};
 
 use axalloc::{UsageKind, global_allocator};
 use axdriver_base::{BaseDriverOps, DevResult, DeviceType};
 use axdriver_virtio::{BufferDirection, PhysAddr, VirtIoHal};
 use axhal::mem::{phys_to_virt, virt_to_phys};
-#[cfg(feature = "crosvm")]
-use axhal::psci::{share_dma_buffer, unshare_dma_buffer};
+// #[cfg(feature = "crosvm")]
+// use axhal::psci::{share_dma_buffer, unshare_dma_buffer};
+
+fn share_dma_buffer(_paddr: usize, _size: usize) {
+    // Placeholder for share_dma_buffer implementation
+}
+
+fn unshare_dma_buffer(_paddr: usize, _size: usize) {
+    // Placeholder for unshare_dma_buffer implementation
+}
+
 use cfg_if::cfg_if;
 
 use crate::{AxDeviceEnum, drivers::DriverProbe};
@@ -182,7 +190,7 @@ cfg_if! {
         use axsync::Mutex;
         use spin::Lazy;
         const PAGE_SIZE: usize = 0x1000; // define page size as 4KB
-        const VIRTIO_QUEUE_SIZE: usize = 32;
+        const VIRTIO_QUEUE_SIZE: usize = 128;
 
         struct VirtIoFramePool
         {
@@ -194,6 +202,7 @@ cfg_if! {
         static VIRTIO_FRAME_POOL: Lazy<Mutex<VirtIoFramePool>> = Lazy::new(|| {
             let vaddr = global_allocator().alloc_pages(VIRTIO_QUEUE_SIZE,0x1000,UsageKind::Dma).expect("virtio frame pool alloc failed");
             let paddr = virt_to_phys(vaddr.into());
+            error!("VIRTIO_FRAME_POOL: vaddr={:#x} paddr={:#x}", vaddr, paddr);
             share_dma_buffer(paddr.as_usize(), VIRTIO_QUEUE_SIZE * PAGE_SIZE);
             let pool = VirtIoFramePool {
                 pool_paddr: paddr.into(),
@@ -219,8 +228,6 @@ cfg_if! {
                 };
                 self.v2p_map.insert(vaddr, frame_index);
                 let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
-                //trace!("alloc_page_from_pool: vaddr={:#x} -> paddr={:#x} frame_index={}",
-                //    vaddr, paddr, frame_index);
                 paddr
             }
 
@@ -228,9 +235,7 @@ cfg_if! {
                 let frame_index = self.v2p_map.remove(&vaddr).unwrap();
                 assert!(self.bitmap[frame_index]);
                 self.bitmap[frame_index] = false;
-                //let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
-                //trace!("free_page_to_pool: vaddr={:#x} paddr={:#x}  frame_index={}",
-                //    vaddr, paddr, frame_index);
+                let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
             }
         }
     }
@@ -271,7 +276,7 @@ unsafe impl VirtIoHal for VirtIoHalImpl {
 
     #[allow(unused_variables)]
     #[inline]
-    unsafe fn share(buffer: NonNull<[u8]>, _direction: BufferDirection) -> PhysAddr {
+    unsafe fn share(buffer: NonNull<[u8]>, direction: BufferDirection) -> PhysAddr {
         #[cfg(feature = "crosvm")]
         {
             let vaddr = buffer.as_ptr() as *mut u8 as usize;
@@ -282,11 +287,13 @@ unsafe impl VirtIoHal for VirtIoHalImpl {
                 pool.alloc_page_from_pool(vaddr)
             };
 
-            let data = unsafe {
-                let data = phys_to_virt(paddr.into()).as_usize() as *mut u8;
-                core::slice::from_raw_parts_mut(data, len)
-            };
-            data.clone_from_slice(unsafe { &buffer.as_ref() });
+            if direction != BufferDirection::DeviceToDriver {
+                let data = unsafe {
+                    let data = phys_to_virt(paddr.into()).as_usize() as *mut u8;
+                    core::slice::from_raw_parts_mut(data, len)
+                };
+                data.clone_from_slice(unsafe { &buffer.as_ref() });
+            }
             paddr
         }
 
@@ -299,22 +306,22 @@ unsafe impl VirtIoHal for VirtIoHalImpl {
 
     #[inline]
     #[allow(unused_variables)]
-    unsafe fn unshare(paddr: PhysAddr, buffer: NonNull<[u8]>, _direction: BufferDirection) {
+    unsafe fn unshare(paddr: PhysAddr, buffer: NonNull<[u8]>, direction: BufferDirection) {
         #[cfg(feature = "crosvm")]
         {
             let mut buffer = buffer;
             let vaddr = buffer.as_ptr() as *mut u8 as usize;
-            let len = buffer.len();
-            {
-                let mut pool = VIRTIO_FRAME_POOL.lock();
-                pool.free_page_to_pool(vaddr);
+
+            if direction != BufferDirection::DriverToDevice {
+                let data = unsafe {
+                    let data = phys_to_virt(paddr.into()).as_usize() as *mut u8;
+                    core::slice::from_raw_parts(data, buffer.len())
+                };
+                unsafe { buffer.as_mut().clone_from_slice(&data) };
             }
 
-            let data = unsafe {
-                let data = phys_to_virt(paddr.into()).as_usize() as *mut u8;
-                core::slice::from_raw_parts(data, len)
-            };
-            unsafe { buffer.as_mut().clone_from_slice(&data) };
+            let mut pool = VIRTIO_FRAME_POOL.lock();
+            pool.free_page_to_pool(vaddr);
         }
     }
 }
