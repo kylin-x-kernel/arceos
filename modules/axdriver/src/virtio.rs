@@ -12,17 +12,8 @@ use axalloc::{UsageKind, global_allocator};
 use axdriver_base::{BaseDriverOps, DevResult, DeviceType};
 use axdriver_virtio::{BufferDirection, PhysAddr, VirtIoHal};
 use axhal::mem::{phys_to_virt, virt_to_phys};
-// #[cfg(feature = "crosvm")]
-// use axhal::psci::{share_dma_buffer, unshare_dma_buffer};
-
-fn share_dma_buffer(_paddr: usize, _size: usize) {
-    // Placeholder for share_dma_buffer implementation
-}
-
-fn unshare_dma_buffer(_paddr: usize, _size: usize) {
-    // Placeholder for unshare_dma_buffer implementation
-}
-
+#[cfg(feature = "crosvm")]
+use axhal::psci::{share_dma_buffer, unshare_dma_buffer};
 use cfg_if::cfg_if;
 
 use crate::{AxDeviceEnum, drivers::DriverProbe};
@@ -190,7 +181,7 @@ cfg_if! {
         use axsync::Mutex;
         use spin::Lazy;
         const PAGE_SIZE: usize = 0x1000; // define page size as 4KB
-        const VIRTIO_QUEUE_SIZE: usize = 128;
+        const VIRTIO_QUEUE_SIZE: usize = 32;
 
         struct VirtIoFramePool
         {
@@ -235,7 +226,6 @@ cfg_if! {
                 let frame_index = self.v2p_map.remove(&vaddr).unwrap();
                 assert!(self.bitmap[frame_index]);
                 self.bitmap[frame_index] = false;
-                let paddr = self.pool_paddr + (PAGE_SIZE * frame_index);
             }
         }
     }
