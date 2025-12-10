@@ -193,7 +193,6 @@ cfg_if! {
         static VIRTIO_FRAME_POOL: Lazy<Mutex<VirtIoFramePool>> = Lazy::new(|| {
             let vaddr = global_allocator().alloc_pages(VIRTIO_QUEUE_SIZE,0x1000,UsageKind::Dma).expect("virtio frame pool alloc failed");
             let paddr = virt_to_phys(vaddr.into());
-            error!("VIRTIO_FRAME_POOL: vaddr={:#x} paddr={:#x}", vaddr, paddr);
             share_dma_buffer(paddr.as_usize(), VIRTIO_QUEUE_SIZE * PAGE_SIZE);
             let pool = VirtIoFramePool {
                 pool_paddr: paddr.into(),
