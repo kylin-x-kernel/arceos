@@ -6,7 +6,6 @@ use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Timelike, Utc};
 
 use super::{ff, fs::FatFilesystemInner};
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct CaseInsensitiveString(pub String);
 

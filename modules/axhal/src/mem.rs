@@ -18,11 +18,6 @@ const MAX_REGIONS: usize = 128;
 
 static ALL_MEM_REGIONS: LazyInit<Vec<PhysMemRegion, MAX_REGIONS>> = LazyInit::new();
 
-#[inline(always)]
-fn sym_addr(sym: unsafe extern "C" fn()) -> usize {
-    sym as *const () as usize
-}
-
 /// Returns an iterator over all physical memory regions.
 pub fn memory_regions() -> impl Iterator<Item = PhysMemRegion> {
     ALL_MEM_REGIONS.iter().cloned()
