@@ -9,6 +9,7 @@ use axhal::{
 };
 use axsync::Mutex;
 use kspin::SpinNoIrq;
+use log::error;
 use memory_addr::{PhysAddr, VirtAddr, VirtAddrRange};
 
 use crate::{
@@ -86,29 +87,47 @@ impl CowBackend {
         flags: MappingFlags,
         pt: &mut PageTableMut,
     ) -> AxResult {
-        match dec_frame_ref(paddr) {
-            0 => unreachable!(),
-            // There is only one AddrSpace reference to the page,
-            // so there is no need to copy it.
-            1 => {
-                inc_frame_ref(paddr);
-                pt.protect(vaddr, flags)?;
-            }
-            // Allocates the new page and copies the contents of the original page,
-            // remapping the virtual address to the physical address of the new page.
-            2.. => {
-                let new_frame = alloc_frame(false, self.size)?;
-                inc_frame_ref(new_frame);
-                unsafe {
-                    core::ptr::copy_nonoverlapping(
-                        phys_to_virt(paddr).as_ptr(),
-                        phys_to_virt(new_frame).as_mut_ptr(),
-                        self.size as _,
-                    );
-                }
+        // Hold the FRAME_TABLE lock during the entire operation to avoid race conditions.
+        // This includes page copying to prevent another process from modifying the page
+        // while we're copying it.
+        let mut table = FRAME_TABLE.lock();
 
-                pt.remap(vaddr, new_frame, flags)?;
+        let count = table.get_mut(&paddr).ok_or_else(|| {
+            error!("handle_cow_fault: frame {:#x} not in ref table", paddr);
+            AxError::BadAddress
+        })?;
+
+        if *count == 1 {
+            // Only one reference, no need to copy, just restore write permission.
+            // Keep reference count unchanged.
+            drop(table);
+            pt.protect(vaddr, flags)?;
+        } else {
+            // Multiple references, need to copy the page.
+            // Allocate new frame first while still holding the lock.
+            let new_frame = alloc_frame(false, self.size)?;
+
+            // Now it's safe to decrement the old page's reference count.
+            *count -= 1;
+
+            // Copy page content while holding the lock to prevent the source
+            // page from being modified by another process that might see count=1.
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    phys_to_virt(paddr).as_ptr(),
+                    phys_to_virt(new_frame).as_mut_ptr(),
+                    self.size as _,
+                );
             }
+
+            // Now we can release the lock since copying is done.
+            drop(table);
+
+            // Register the new frame in the reference table.
+            inc_frame_ref(new_frame);
+
+            // Remap to the new frame.
+            pt.remap(vaddr, new_frame, flags)?;
         }
 
         Ok(())
