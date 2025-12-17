@@ -1,0 +1,22 @@
+[package]
+name = "axwatchdog"
+version = "0.1.0"
+edition = "2024"
+authors = ["ZhiXian Luo <luozhixian@kylinos.cn>"]
+license = "Apache-2.0"
+description = "Watchdog timer with NMI support for embedded systems"
+keywords = ["watchdog", "nmi", "embedded", "no_std"]
+categories = ["no-std", "embedded", "hardware-support"]
+
+[features]
+default = ["log"]
+sdei = []
+pmu = ["dep:aarch64-pmuv3"]
+log = ["dep:log"]
+alloc = []
+
+[dependencies]
+aarch64-pmuv3 = { git = "https://github.com/kylin-x-kernel/aarch64-pmuv3.git", branch = "lzx/dev", optional = true }
+axconfig.workspace = true
+axhal.workspace = true
+log = { version = "0.4", optional = true }
