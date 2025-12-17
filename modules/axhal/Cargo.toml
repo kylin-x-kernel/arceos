@@ -61,7 +61,7 @@ ipi = ["irq"]
 [dependencies]
 axalloc = { workspace = true, optional = true }
 axconfig.workspace = true
-axcpu = { git = "https://github.com/arceos-org/axcpu.git", tag = "dev-v03" }
+axcpu = { git = "https://github.com/kylin-x-kernel/axcpu.git", branch = "dev"}
 axplat.workspace = true
 cfg-if.workspace = true
 heapless = "0.9"

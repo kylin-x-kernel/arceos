@@ -223,6 +223,9 @@ pub fn rust_main(cpu_id: usize, arg: usize) -> ! {
         init_interrupt();
     }
 
+    #[cfg(feature = "watchdog")]
+    axwatchdog::init();
+
     #[cfg(all(feature = "tls", not(feature = "multitask")))]
     {
         info!("Initialize thread local storage...");
@@ -299,6 +302,12 @@ fn init_interrupt() {
         unsafe { NEXT_DEADLINE.write_current_raw(deadline + PERIODIC_INTERVAL_NANOS) };
         axhal::time::set_oneshot_timer(deadline);
     }
+
+    #[cfg(all(feature = "watchdog", feature = "pmu"))]
+    axhal::irq::register(axconfig::devices::PMU_IRQ, || {
+        debug!("PMU NMI watchdog interrupt received");
+        axwatchdog::PMU_NMI.handle_overflow();
+    });
 
     axhal::irq::register(axhal::time::irq_num(), || {
         update_timer();
