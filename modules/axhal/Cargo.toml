@@ -41,6 +41,7 @@ rtc = [
     "axplat-riscv64-qemu-virt?/rtc",
     "axplat-loongarch64-qemu-virt?/rtc",
 ]
+aarch64-gic-pmr = ["axplat-aarch64-qemu-virt?/pmr"]
 paging = ["dep:axalloc", "dep:page_table_multiarch"]
 tls = ["axcpu/tls"]
 uspace = ["paging", "axcpu/uspace"]
@@ -61,7 +62,7 @@ ipi = ["irq"]
 [dependencies]
 axalloc = { workspace = true, optional = true }
 axconfig.workspace = true
-axcpu = { git = "https://github.com/kylin-x-kernel/axcpu.git", branch = "dev"}
+axcpu = { version = "0.3.0", git = "https://github.com/arceos-org/axcpu.git", tag = "dev-v03" }
 axplat.workspace = true
 cfg-if.workspace = true
 heapless = "0.9"

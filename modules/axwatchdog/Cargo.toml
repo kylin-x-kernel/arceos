@@ -16,7 +16,12 @@ log = ["dep:log"]
 alloc = []
 
 [dependencies]
-aarch64-pmuv3 = { git = "https://github.com/kylin-x-kernel/aarch64-pmuv3.git", branch = "lzx/dev", optional = true }
 axconfig.workspace = true
 axhal.workspace = true
-log = { version = "0.4", optional = true }
+cfg-if.workspace = true
+log = { workspace = true, optional = true}
+percpu.workspace = true
+lazyinit.workspace = true
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-pmuv3 = { git = "https://github.com/kylin-x-kernel/aarch64-pmuv3.git", branch = "lzx/dev", optional = true }
