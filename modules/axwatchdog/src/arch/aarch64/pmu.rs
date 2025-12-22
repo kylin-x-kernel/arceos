@@ -33,7 +33,7 @@ pub fn init_primary(threshold: u64) -> Result<(), NmiError> {
         debug!("PMU NMI watchdog interrupt received on cpu {}", this_cpu_id());
         pmu_irq_handler();
     });
-
+    debug!("watchdog init success on cpu {}", this_cpu_id());
     Ok(())
 }
 
@@ -52,7 +52,7 @@ pub fn init_secondary(threshold: u64) -> Result<(), NmiError> {
     // Set interrupt priority without registering a handler
     axhal::irq::set_priority(axconfig::devices::PMU_IRQ, 0);
     axhal::irq::set_enable(axconfig::devices::PMU_IRQ, true);
-
+    debug!("watchdog init success on cpu {}", this_cpu_id());
     Ok(())
 }
 

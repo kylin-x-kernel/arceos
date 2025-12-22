@@ -107,7 +107,7 @@ driver-dyn = ["paging", "axruntime/driver-dyn", "axdriver/dyn"]
 dwarf = ["alloc", "axbacktrace/dwarf"]
 
 # Watchdog
-aarch64-pmu-watchdog = ["axruntime/aarch64-pmu", "axruntime/watchdog"]
+aarch64-pmu-watchdog = ["axruntime/aarch64-pmu", "axruntime/watchdog", "axhal/aarch64-gic-pmr"]
 
 [dependencies]
 axalloc = { workspace = true, optional = true }
