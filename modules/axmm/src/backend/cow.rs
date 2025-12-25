@@ -1,3 +1,4 @@
+// compile_error!("test!");
 use alloc::{boxed::Box, collections::btree_map::BTreeMap, sync::Arc};
 use core::slice;
 
@@ -17,26 +18,54 @@ use crate::{
     backend::{Backend, BackendOps, alloc_frame, dealloc_frame, pages_in},
 };
 
-static FRAME_TABLE: SpinNoIrq<BTreeMap<PhysAddr, u8>> = SpinNoIrq::new(BTreeMap::new());
+struct FrameState {
+    inner: SpinNoIrq<FrameRef>,
+}
+
+struct FrameRef {
+    count: u8,
+}
+
+impl FrameState {
+    fn new(count: u8) -> Self {
+        Self {
+            inner: SpinNoIrq::new(FrameRef { count }),
+        }
+    }
+}
+
+static FRAME_TABLE: SpinNoIrq<BTreeMap<PhysAddr, Arc<FrameState>>> =
+    SpinNoIrq::new(BTreeMap::new());
 
 fn inc_frame_ref(paddr: PhysAddr) {
-    let mut table = FRAME_TABLE.lock();
-    *table.entry(paddr).or_insert(0) += 1;
+    let state = {
+        let mut table = FRAME_TABLE.lock();
+        table
+            .entry(paddr)
+            .or_insert_with(|| Arc::new(FrameState::new(0)))
+            .clone()
+    };
+
+    let mut inner = state.inner.lock();
+    inner.count += 1;
 }
 
 fn dec_frame_ref(paddr: PhysAddr) -> usize {
     let mut table = FRAME_TABLE.lock();
-    if let Some(count) = table.get_mut(&paddr) {
-        let prev = *count;
-        if prev == 1 {
-            table.remove(&paddr);
-        } else {
-            *count -= 1;
-        }
-        prev as usize
+    let state = match table.get(&paddr) {
+        Some(state) => state.clone(),
+        None => return 0,
+    };
+
+    let mut inner = state.inner.lock();
+    let prev = inner.count;
+    if prev == 1 {
+        inner.count = 0;
+        table.remove(&paddr);
     } else {
-        0
+        inner.count -= 1;
     }
+    prev as usize
 }
 
 /// Copy-on-write mapping backend.
@@ -87,48 +116,39 @@ impl CowBackend {
         flags: MappingFlags,
         pt: &mut PageTableMut,
     ) -> AxResult {
-        // Hold the FRAME_TABLE lock during the entire operation to avoid race conditions.
-        // This includes page copying to prevent another process from modifying the page
-        // while we're copying it.
-        let mut table = FRAME_TABLE.lock();
+        // Use global lock only to locate the frame state, then lock the frame itself.
+        let state = {
+            let table = FRAME_TABLE.lock();
+            table.get(&paddr).cloned().ok_or_else(|| {
+                error!("handle_cow_fault: frame {:#x} not in ref table", paddr);
+                AxError::BadAddress
+            })?
+        };
 
-        let count = table.get_mut(&paddr).ok_or_else(|| {
-            error!("handle_cow_fault: frame {:#x} not in ref table", paddr);
-            AxError::BadAddress
-        })?;
-
-        if *count == 1 {
-            // Only one reference, no need to copy, just restore write permission.
-            // Keep reference count unchanged.
-            drop(table);
+        let mut inner = state.inner.lock();
+        if inner.count == 1 {
+            drop(inner);
             pt.protect(vaddr, flags)?;
-        } else {
-            // Multiple references, need to copy the page.
-            // Allocate new frame first while still holding the lock.
-            let new_frame = alloc_frame(false, self.size)?;
-
-            // Now it's safe to decrement the old page's reference count.
-            *count -= 1;
-
-            // Copy page content while holding the lock to prevent the source
-            // page from being modified by another process that might see count=1.
-            unsafe {
-                core::ptr::copy_nonoverlapping(
-                    phys_to_virt(paddr).as_ptr(),
-                    phys_to_virt(new_frame).as_mut_ptr(),
-                    self.size as _,
-                );
-            }
-
-            // Now we can release the lock since copying is done.
-            drop(table);
-
-            // Register the new frame in the reference table.
-            inc_frame_ref(new_frame);
-
-            // Remap to the new frame.
-            pt.remap(vaddr, new_frame, flags)?;
+            return Ok(());
         }
+
+        // Allocate and copy while holding the per-frame lock.
+        let new_frame = alloc_frame(false, self.size)?;
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                phys_to_virt(paddr).as_ptr(),
+                phys_to_virt(new_frame).as_mut_ptr(),
+                self.size as _,
+            );
+        }
+
+        // Update refcount after copy to avoid exposing count == 1 mid-copy.
+        inner.count -= 1;
+        drop(inner);
+
+         inc_frame_ref(new_frame);
+
+        pt.remap(vaddr, new_frame, flags)?;
 
         Ok(())
     }
