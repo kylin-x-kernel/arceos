@@ -84,7 +84,7 @@ axdriver_virtio = { git = "https://github.com/arceos-org/axdriver_crates.git", t
 axdriver_vsock = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "dev-v01" }
 axerrno = "0.2"
 axfs-ng-vfs = "0.1"
-axio = { git = "https://github.com/arceos-org/axio.git", tag = "dev-v02" }
+axio = "0.3.0-pre.1"
 axklib = { git = "https://github.com/arceos-hypervisor/axklib.git" } # FIXME: pin to a specific commit or tag
 axpoll = "0.1"
 bindgen = "0.72"
