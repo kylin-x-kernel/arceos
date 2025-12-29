@@ -41,7 +41,7 @@ rtc = [
     "axplat-riscv64-qemu-virt?/rtc",
     "axplat-loongarch64-qemu-virt?/rtc",
 ]
-aarch64-gic-pmr = ["axplat-aarch64-qemu-virt?/pmr"]
+nmi = ["axplat-aarch64-qemu-virt?/pmu"]
 paging = ["dep:axalloc", "dep:page_table_multiarch"]
 tls = ["axcpu/tls"]
 uspace = ["paging", "axcpu/uspace"]

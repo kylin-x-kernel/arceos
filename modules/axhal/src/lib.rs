@@ -65,9 +65,10 @@ cfg_if::cfg_if! {
 
 pub mod dtb;
 pub mod mem;
+#[cfg(feature = "nmi")]
+pub mod nmi;
 pub mod percpu;
 pub mod time;
-
 #[cfg(feature = "tls")]
 pub mod tls;
 

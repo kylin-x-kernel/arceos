@@ -9,19 +9,12 @@ keywords = ["watchdog", "nmi", "embedded", "no_std"]
 categories = ["no-std", "embedded", "hardware-support"]
 
 [features]
-default = ["log"]
-sdei = []
-pmu = ["dep:aarch64-pmuv3"]
-log = ["dep:log"]
-alloc = []
+default = ["axhal/nmi"]
 
 [dependencies]
 axconfig.workspace = true
 axhal.workspace = true
 cfg-if.workspace = true
-log = { workspace = true, optional = true}
+log.workspace = true
 percpu.workspace = true
 lazyinit.workspace = true
-
-[target.'cfg(target_arch = "aarch64")'.dependencies]
-aarch64-pmuv3 = { git = "https://github.com/kylin-x-kernel/aarch64-pmuv3.git", branch = "lzx/dev", optional = true }
