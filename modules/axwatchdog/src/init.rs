@@ -1,14 +1,8 @@
-//! NMI (Non-Maskable Interrupt) source abstraction.
-//!
-//! This module defines the trait for NMI sources that can be used to trigger
-//! watchdog checks. Different hardware mechanisms (SDEI, PMU overflow, etc.)
-//! can implement this trait.
 use axhal::percpu::this_cpu_id;
 use log::debug;
 
 /// Hard lockup detection threshold: 10 seconds at 1GHz
 pub const HARD_LOCKUP_THRESHOLD: u64 = 0x0000_0002_540B_E400;
-
 
 /// Initialize watchdog on primary cores
 pub fn init_primary(threshold: u64){

@@ -1,4 +1,4 @@
 #![no_std]
-pub mod nmi;
+pub mod init;
 
-pub use crate::nmi::{init_primary,init_secondary};
+pub use crate::init::{init_primary,init_secondary};
