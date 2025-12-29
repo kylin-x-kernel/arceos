@@ -6,28 +6,6 @@ A Non-Maskable Interrupt (NMI) based hard lockup detection watchdog for system m
 
 axwatchdog is a hard lockup detection implementation that uses NMI mechanisms to periodically trigger interrupts and monitor system state. When a hard lockup occurs, the watchdog can trigger appropriate handling mechanisms.
 
-## Features
-
-- **Multiple NMI Sources**:
-  - PMU (Performance Monitoring Unit) overflow interrupts (implemented)
-  - SDEI (Software Delegated Exception Interface) NMI (planned)
-- **Multi-core Support**: Runs in SMP (Symmetric Multi-Processing) environments
-- **Configurable Thresholds**: Customizable lockup detection time thresholds
-- **No-std Compatibility**: Pure `no_std` environment operation
-
-## NMI Sources
-
-### PMU NMI Source (Current Implementation)
-
-Based on ARMv8 PMU cycle counter overflow mechanism:
-- Uses PMU cycle counters to monitor CPU activity
-- Triggers NMI interrupts on counter overflow
-- Supports custom overflow thresholds (cycle counts)
-
-### SDEI NMI Source (Planned)
-
-Based on ARM SDEI software-delegated NMI mechanism.
-
 ## Usage
 
 ### Initialization
@@ -40,17 +18,6 @@ init_primary(HARD_LOCKUP_THRESHOLD)?;
 init_secondary(HARD_LOCKUP_THRESHOLD)?;
 ```
 
-## Configuration
-
-### Compile-time Configuration
-
-Enable features in `Cargo.toml`:
-
-```toml
-[dependencies.axwatchdog]
-features = ["pmu"] # Enable PMU support
-```
-
 ## Hardware Requirements
 
 ### PMU NMI Source
@@ -60,23 +27,6 @@ features = ["pmu"] # Enable PMU support
 
 ### SDEI NMI Source (Planned)
 - ARM SDEI compatible firmware/hypervisor
-
-## Error Handling
-
-Operations return `NmiError` type:
-
-```rust
-pub enum NmiError {
-    NotAvailable, // NMI source not available
-    NotInitialized, // NMI source not initialized
-    AlreadyInitialized, // NMI source already initialized
-    InvalidConfig, // Invalid configuration parameter
-    HandlerExists, // Handler already registered
-    NoHandler, // No handler registered
-    NotSupported, // Operation not supported
-    HardwareError, // Hardware error
-}
-```
 
 ## Notes
 
