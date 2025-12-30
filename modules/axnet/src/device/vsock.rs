@@ -15,6 +15,8 @@ use alloc::collections::VecDeque;
 static VSOCK_DEVICE: Mutex<Option<AxVsockDevice>> = Mutex::new(None);
 static PENDING_EVENTS: Mutex<VecDeque<VsockDriverEvent>> = Mutex::new(VecDeque::new());
 
+const VSOCK_RX_TMPBUF_SIZE: usize = 0x1000; // 4KiB buffer for vsock receive
+
 /// Registers a vsock device. Only one vsock device can be registered.
 pub fn register_vsock_device(dev: AxVsockDevice) -> AxResult {
     let mut guard = VSOCK_DEVICE.lock();
@@ -167,15 +169,15 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
         }
 
         VsockDriverEvent::Received(conn_id, len) => {
-            let mut buf = alloc::vec![0; 0x1000]; // 4KiB buffer for receiving data
             let free_space = if let Some(conn) = manager.get_connection(conn_id) {
                 conn.lock().rx_buffer_free()
             } else {
-                buf.len()
+                return;
             };
 
             if free_space > 0 {
-                // Read as much as the upper layer can accept, up to buf.len()
+                // Read as much as the upper layer can accept, up to VSOCK_RX_TMPBUF_SIZE
+                let mut buf = alloc::vec![0; VSOCK_RX_TMPBUF_SIZE];
                 let max_read = core::cmp::min(free_space, buf.len());
                 if let Ok(read_len) = dev.recv(conn_id, &mut buf[..max_read]) {
                     let _ = manager.on_data_received(conn_id, &buf[..read_len]);
