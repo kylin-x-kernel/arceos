@@ -9,9 +9,11 @@ use axsync::Mutex;
 use axtask::future::{block_on, interruptible};
 
 use crate::{alloc::string::ToString, vsock::connection_manager::VSOCK_CONN_MANAGER};
+use alloc::collections::VecDeque;
 
 // we need a global and static only one vsock device
 static VSOCK_DEVICE: Mutex<Option<AxVsockDevice>> = Mutex::new(None);
+static PENDING_EVENTS: Mutex<VecDeque<VsockDriverEvent>> = Mutex::new(VecDeque::new());
 
 /// Registers a vsock device. Only one vsock device can be registered.
 pub fn register_vsock_device(dev: AxVsockDevice) -> AxResult {
@@ -131,38 +133,20 @@ fn poll_vsock_interfaces() -> AxResult<bool> {
     let mut guard = VSOCK_DEVICE.lock();
     let dev = guard.as_mut().ok_or(AxError::NotFound)?;
     let mut event_count = 0;
-    let mut buf = alloc::vec![0; 0x1000]; // 4KiB buffer for receiving data
+
+    // Process pending events first
+    // Use core::mem::take to atomically move all events out and empty the global queue
+    let pending_events = core::mem::take(&mut *PENDING_EVENTS.lock());
+    for event in pending_events {
+        handle_vsock_event(event, dev);
+    }
 
     loop {
         match dev.poll_event() {
             Ok(None) => break, // no more events
             Ok(Some(event)) => {
-
-                if let VsockDriverEvent::Received(conn_id, _len) = event {
-                    let mut manager = VSOCK_CONN_MANAGER.lock();
-                    let free_space = if let Some(conn) = manager.get_connection(conn_id) {
-                        conn.lock().rx_buffer_free()
-                    } else {
-                        buf.len()
-                    };
-                    drop(manager);
-
-                    if free_space > 0 {
-                        // Read as much as the upper layer can accept, up to buf.len()
-                        let max_read = core::cmp::min(free_space, buf.len());
-                        if let Ok(read_len) = dev.recv(conn_id, &mut buf[..max_read]) {
-                            let mut manager = VSOCK_CONN_MANAGER.lock();
-                            let _ = manager.on_data_received(conn_id, &buf[..read_len]);
-                            trace!("Vsock data received: conn_id={:?}, free_space={}, max_read={}, read_len={}", conn_id, free_space, max_read, read_len);
-                        }
-                    }else{
-                        trace!("Vsock received event but no free space: conn_id={:?}, free_space={}", conn_id, free_space);
-                    }
-                } else {
-                    event_count += 1;
-                    handle_vsock_event(event);
-                }
-
+                event_count += 1;
+                handle_vsock_event(event, dev);
             }
             Err(e) => {
                 info!("Failed to poll vsock event: {:?}", e);
@@ -173,7 +157,7 @@ fn poll_vsock_interfaces() -> AxResult<bool> {
     Ok(event_count > 0)
 }
 
-fn handle_vsock_event(event: VsockDriverEvent) {
+fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
     let mut manager = VSOCK_CONN_MANAGER.lock();
     debug!("Handling vsock event: {:?}", event);
 
@@ -182,8 +166,25 @@ fn handle_vsock_event(event: VsockDriverEvent) {
             let _ = manager.on_connection_request(conn_id);
         }
 
-        VsockDriverEvent::Received(_conn_id, _len) => {
-            // Handled in poll_vsock_interfaces directly to support backpressure
+        VsockDriverEvent::Received(conn_id, len) => {
+            let mut buf = alloc::vec![0; 0x1000]; // 4KiB buffer for receiving data
+            let free_space = if let Some(conn) = manager.get_connection(conn_id) {
+                conn.lock().rx_buffer_free()
+            } else {
+                buf.len()
+            };
+
+            if free_space > 0 {
+                // Read as much as the upper layer can accept, up to buf.len()
+                let max_read = core::cmp::min(free_space, buf.len());
+                if let Ok(read_len) = dev.recv(conn_id, &mut buf[..max_read]) {
+                    let _ = manager.on_data_received(conn_id, &buf[..read_len]);
+                    debug!("Vsock data received: conn_id={:?}, free_space={}, max_read={}, read_len={}", conn_id, free_space, max_read, read_len);
+                }
+            } else {
+                debug!("Vsock received event but no free space: conn_id={:?}, free_space={}", conn_id, free_space);
+                PENDING_EVENTS.lock().push_back(VsockDriverEvent::Received(conn_id, len));
+            }
         }
 
         VsockDriverEvent::Disconnected(conn_id) => {
