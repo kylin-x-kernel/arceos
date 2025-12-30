@@ -165,36 +165,55 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
 
     match event {
         VsockDriverEvent::ConnectionRequest(conn_id) => {
-            let _ = manager.on_connection_request(conn_id);
+            match manager.on_connection_request(conn_id) {
+                Ok(_) => debug!("Connection request accepted: {:?}", conn_id),
+                Err(e) => warn!("Connection request failed: {:?}, error={:?}", conn_id, e),
+            }
         }
 
         VsockDriverEvent::Received(conn_id, len) => {
             let free_space = if let Some(conn) = manager.get_connection(conn_id) {
                 conn.lock().rx_buffer_free()
             } else {
+                warn!("Received data for unknown connection: {:?}", conn_id);
                 return;
             };
 
-            if free_space > 0 {
-                // Read as much as the upper layer can accept, up to VSOCK_RX_TMPBUF_SIZE
-                let mut buf = alloc::vec![0; VSOCK_RX_TMPBUF_SIZE];
-                let max_read = core::cmp::min(free_space, buf.len());
-                if let Ok(read_len) = dev.recv(conn_id, &mut buf[..max_read]) {
-                    let _ = manager.on_data_received(conn_id, &buf[..read_len]);
-                    debug!("Vsock data received: conn_id={:?}, free_space={}, max_read={}, read_len={}", conn_id, free_space, max_read, read_len);
-                }
-            } else {
-                debug!("Vsock received event but no free space: conn_id={:?}, free_space={}", conn_id, free_space);
+            if free_space == 0 {
+                debug!("No free space in rx buffer for conn_id={:?}, deferring receive", conn_id);
                 PENDING_EVENTS.lock().push_back(VsockDriverEvent::Received(conn_id, len));
+                return;
+            }
+
+            let mut buf = alloc::vec![0; VSOCK_RX_TMPBUF_SIZE];
+            let max_read = core::cmp::min(free_space, buf.len());
+            match dev.recv(conn_id, &mut buf[..max_read]) {
+                Ok(read_len) => {
+                    match manager.on_data_received(conn_id, &buf[..read_len]) {
+                        Ok(_) => debug!("Vsock data received: conn_id={:?}, free_space={}, max_read={}, read_len={}", conn_id, free_space, max_read, read_len),
+                        Err(e) => {
+                            warn!("Failed to handle received data: conn_id={:?}, error={:?}", conn_id, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to receive vsock data: conn_id={:?}, error={:?}", conn_id, e);
+                }
             }
         }
 
         VsockDriverEvent::Disconnected(conn_id) => {
-            let _ = manager.on_disconnected(conn_id);
+            match manager.on_disconnected(conn_id) {
+                Ok(_) => debug!("Connection disconnected: {:?}", conn_id),
+                Err(e) => warn!("Failed to handle disconnection: {:?}, error={:?}", conn_id, e),
+            }
         }
 
         VsockDriverEvent::Connected(conn_id) => {
-            let _ = manager.on_connected(conn_id);
+            match manager.on_connected(conn_id) {
+                Ok(_) => debug!("Connection established: {:?}", conn_id),
+                Err(e) => warn!("Failed to handle connection established: {:?}, error={:?}", conn_id, e),
+            }
         }
 
         VsockDriverEvent::Unknown => warn!("Received unknown vsock event"),
