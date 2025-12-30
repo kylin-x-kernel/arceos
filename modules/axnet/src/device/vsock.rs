@@ -165,9 +165,8 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
 
     match event {
         VsockDriverEvent::ConnectionRequest(conn_id) => {
-            match manager.on_connection_request(conn_id) {
-                Ok(_) => debug!("Connection request accepted: {:?}", conn_id),
-                Err(e) => warn!("Connection request failed: {:?}, error={:?}", conn_id, e),
+            if let Err(e) = manager.on_connection_request(conn_id) {
+                warn!("Connection request failed: {:?}, error={:?}", conn_id, e);
             }
         }
 
@@ -180,7 +179,6 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
             };
 
             if free_space == 0 {
-                debug!("No free space in rx buffer for conn_id={:?}, deferring receive", conn_id);
                 PENDING_EVENTS.lock().push_back(VsockDriverEvent::Received(conn_id, len));
                 return;
             }
@@ -189,11 +187,8 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
             let max_read = core::cmp::min(free_space, buf.len());
             match dev.recv(conn_id, &mut buf[..max_read]) {
                 Ok(read_len) => {
-                    match manager.on_data_received(conn_id, &buf[..read_len]) {
-                        Ok(_) => debug!("Vsock data received: conn_id={:?}, free_space={}, max_read={}, read_len={}", conn_id, free_space, max_read, read_len),
-                        Err(e) => {
-                            warn!("Failed to handle received data: conn_id={:?}, error={:?}", conn_id, e);
-                        }
+                    if let Err(e) = manager.on_data_received(conn_id, &buf[..read_len]) {
+                       warn!("Failed to handle received data: conn_id={:?}, error={:?}", conn_id, e);
                     }
                 }
                 Err(e) => {
@@ -203,16 +198,14 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
         }
 
         VsockDriverEvent::Disconnected(conn_id) => {
-            match manager.on_disconnected(conn_id) {
-                Ok(_) => debug!("Connection disconnected: {:?}", conn_id),
-                Err(e) => warn!("Failed to handle disconnection: {:?}, error={:?}", conn_id, e),
+            if let Err(e) = manager.on_disconnected(conn_id) {
+                warn!("Failed to handle disconnection: {:?}, error={:?}", conn_id, e);
             }
         }
 
         VsockDriverEvent::Connected(conn_id) => {
-            match manager.on_connected(conn_id) {
-                Ok(_) => debug!("Connection established: {:?}", conn_id),
-                Err(e) => warn!("Failed to handle connection established: {:?}, error={:?}", conn_id, e),
+            if let Err(e) = manager.on_connected(conn_id) {
+                warn!("Failed to handle connection established: {:?}, error={:?}", conn_id, e);
             }
         }
 
