@@ -65,7 +65,7 @@ pub fn rust_main_secondary(cpu_id: usize) -> ! {
     axhal::asm::enable_irqs();
 
     #[cfg(feature = "watchdog")]
-    let _ = axwatchdog::init_secondary(axwatchdog::HARD_LOCKUP_THRESHOLD);
+    axwatchdog::init_secondary(axwatchdog::HARD_LOCKUP_THRESHOLD);
 
     #[cfg(all(feature = "tls", not(feature = "multitask")))]
     super::init_tls();
