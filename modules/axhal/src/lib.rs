@@ -68,6 +68,8 @@ pub mod mem;
 #[cfg(feature = "nmi")]
 pub mod nmi;
 pub mod percpu;
+#[cfg(feature = "pmu")]
+pub mod pmu;
 pub mod time;
 
 #[cfg(feature = "tls")]

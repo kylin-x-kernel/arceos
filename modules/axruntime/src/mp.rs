@@ -58,6 +58,9 @@ pub fn rust_main_secondary(cpu_id: usize) -> ! {
         core::hint::spin_loop();
     }
 
+    #[cfg(feature = "pmu")]
+    axhal::irq::set_enable(axconfig::devices::PMU_IRQ, true);
+
     #[cfg(feature = "irq")]
     axhal::asm::enable_irqs();
 

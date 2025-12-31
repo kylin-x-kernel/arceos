@@ -109,6 +109,9 @@ dwarf = ["alloc", "axbacktrace/dwarf"]
 # Watchdog
 watchdog = ["axruntime/watchdog"]
 
+# Pmu
+pmu = ["axruntime/pmu"]
+
 [dependencies]
 axalloc = { workspace = true, optional = true }
 axbacktrace.workspace = true

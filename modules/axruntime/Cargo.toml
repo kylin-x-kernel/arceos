@@ -32,6 +32,7 @@ rtc = []
 driver-dyn = ["axdriver/dyn"]
 crosvm = ["vsock", "axfs/crosvm"]
 watchdog = ["dep:axwatchdog"]
+pmu = ["irq", "axhal/pmu"]
 
 [dependencies]
 axalloc = { workspace = true, optional = true }

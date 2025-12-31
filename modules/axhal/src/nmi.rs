@@ -1,1 +1,1 @@
-pub use axplat::nmi::{init, enable, handle};
+pub use axplat::nmi::{init, enable};

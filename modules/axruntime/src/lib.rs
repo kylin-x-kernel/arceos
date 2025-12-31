@@ -314,6 +314,15 @@ fn init_interrupt() {
         axipi::ipi_handler();
     });
 
+    #[cfg(feature = "pmu")]
+    axhal::irq::register(axconfig::devices::PMU_IRQ, || {
+        debug!(
+            "PMU interrupt received on cpu {}",
+            axhal::percpu::this_cpu_id()
+        );
+        axhal::pmu::handle_overflows();
+    });
+
     // Enable IRQs before starting app
     axhal::asm::enable_irqs();
 }
