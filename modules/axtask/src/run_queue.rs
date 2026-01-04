@@ -45,6 +45,28 @@ percpu_static! {
     PREV_TASK: Weak<crate::AxTask> = Weak::new(),
 }
 
+use {kspin::SpinNoIrq, alloc::vec::Vec, crate::WeakAxTaskRef};
+
+/// Stores all tasks for each CPU except those in the 'exited' state.
+static mut GLOBAL_TASK_QUEUES: [SpinNoIrq<Vec<WeakAxTaskRef>>; axconfig::plat::CPU_NUM] =
+    [ const { SpinNoIrq::new(Vec::new()) }; axconfig::plat::CPU_NUM];
+
+/// Returns a mutable reference to the global task queue of the given CPU.
+#[inline]
+pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static SpinNoIrq<Vec<WeakAxTaskRef>>{
+    unsafe { &GLOBAL_TASK_QUEUES[cpu_id] }
+}
+
+#[inline]
+pub(crate) fn get_prev_task() -> Arc<crate::AxTask> {
+    unsafe{
+        PREV_TASK
+            .current_ref_raw()
+            .upgrade()
+            .expect("Invalid prev_task pointer or prev_task has been dropped")
+    }
+}
+
 /// An array of references to run queues, one for each CPU, indexed by cpu_id.
 ///
 /// This static variable holds references to the run queues for each CPU in the system.
@@ -243,6 +265,7 @@ impl<G: BaseGuard> AxRunQueueRef<'_, G> {
             self.inner.cpu_id
         );
         assert!(task.is_ready());
+        get_global_task_queue(self.inner.cpu_id).lock().push(Arc::downgrade(&task));
         self.inner.scheduler.lock().add_task(task);
     }
 
@@ -363,6 +386,9 @@ impl<G: BaseGuard> CurrentRunQueueRef<'_, G> {
         debug!("task exit: {}, exit_code={}", curr.id_name(), exit_code);
         assert!(curr.is_running(), "task is not running: {:?}", curr.state());
         assert!(!curr.is_idle());
+        get_global_task_queue(self.inner.cpu_id).lock().retain(|weak_task| {
+            weak_task.upgrade().map_or(true, |t| t.id() != curr.id())
+        });
         if curr.is_init() {
             // Safety: it is called from `current_run_queue::<NoPreemptIrqSave>().exit_current(exit_code)`,
             // which disabled IRQs and preemption.

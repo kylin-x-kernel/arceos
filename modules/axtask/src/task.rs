@@ -200,6 +200,12 @@ impl TaskInner {
         self.ctx.get_mut()
     }
 
+    /// Returns a shared reference to the task context.
+    #[inline]
+    pub fn ctx(&self) -> &TaskContext {
+        unsafe { &*self.ctx.get() }
+    }
+
     /// Returns the top address of the kernel stack.
     #[inline]
     pub const fn kernel_stack_top(&self) -> Option<VirtAddr> {

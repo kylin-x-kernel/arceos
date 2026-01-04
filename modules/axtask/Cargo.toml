@@ -42,6 +42,7 @@ test = ["percpu?/sp-naive"]
 axconfig = { workspace = true, optional = true }
 axerrno.workspace = true
 axhal.workspace = true
+axbacktrace.workspace = true
 axpoll = { workspace = true, optional = true }
 axsched = { version = "0.3", optional = true }
 cfg-if.workspace = true

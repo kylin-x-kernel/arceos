@@ -14,6 +14,7 @@ default = ["axhal/nmi"]
 [dependencies]
 axconfig.workspace = true
 axhal.workspace = true
+axtask.workspace = true
 cfg-if.workspace = true
 log.workspace = true
 percpu.workspace = true

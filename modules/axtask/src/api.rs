@@ -9,6 +9,7 @@ use alloc::{
 
 use kernel_guard::NoPreemptIrqSave;
 
+use crate::run_queue::get_prev_task;
 pub(crate) use crate::run_queue::{current_run_queue, select_run_queue};
 
 #[doc(cfg(feature = "multitask"))]
@@ -258,4 +259,27 @@ pub fn run_idle() -> ! {
         #[cfg(feature = "irq")]
         axhal::asm::wait_for_irqs();
     }
+}
+
+/// Print all tasks in the global task queue of the specified CPU.
+pub fn show_global_task_queue(cpu_id: usize){
+    for weaktask in crate::run_queue::get_global_task_queue(cpu_id).lock().iter() {
+        if let Some(task) = weaktask.upgrade() {
+            warn!("cpu_id: {}, {:?}",cpu_id,task.inner());
+        }
+    }
+}
+
+pub fn show_prev_task_backtrace() {
+    let task = get_prev_task();
+    warn!("prev_task: {:?}",task.inner());
+    let ctx = task.inner().ctx();
+
+    let bt = axbacktrace::Backtrace::capture_trap(
+        ctx.r29 as usize, // fp
+        ctx.lr as usize,  // ip
+        ctx.lr as usize,  // ra
+    );
+
+    warn!("{bt}");
 }
