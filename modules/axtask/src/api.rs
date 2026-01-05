@@ -9,7 +9,6 @@ use alloc::{
 
 use kernel_guard::NoPreemptIrqSave;
 
-use crate::run_queue::get_prev_task;
 pub(crate) use crate::run_queue::{current_run_queue, select_run_queue};
 
 #[doc(cfg(feature = "multitask"))]
@@ -270,9 +269,9 @@ pub fn show_global_task_queue(cpu_id: usize){
     }
 }
 
-pub fn show_prev_task_backtrace() {
-    let task = get_prev_task();
-    warn!("prev_task: {:?}",task.inner());
+pub fn show_curr_task_backtrace() {
+    let task = current();
+    warn!("curr_task: {:?}",task.inner());
     let ctx = task.inner().ctx();
 
     let bt = axbacktrace::Backtrace::capture_trap(

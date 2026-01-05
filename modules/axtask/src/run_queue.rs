@@ -57,16 +57,6 @@ pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static SpinNoIrq<Vec<Wea
     unsafe { &GLOBAL_TASK_QUEUES[cpu_id] }
 }
 
-#[inline]
-pub(crate) fn get_prev_task() -> Arc<crate::AxTask> {
-    unsafe{
-        PREV_TASK
-            .current_ref_raw()
-            .upgrade()
-            .expect("Invalid prev_task pointer or prev_task has been dropped")
-    }
-}
-
 /// An array of references to run queues, one for each CPU, indexed by cpu_id.
 ///
 /// This static variable holds references to the run queues for each CPU in the system.
