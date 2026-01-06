@@ -93,6 +93,10 @@ impl TimeIf for DummyTime {
         0
     }
 
+    fn timer_frequency() -> u64 {
+        0
+    }
+    
     #[cfg(feature = "irq")]
     fn irq_num() -> usize {
         0

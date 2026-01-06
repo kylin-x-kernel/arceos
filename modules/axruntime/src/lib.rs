@@ -224,7 +224,7 @@ pub fn rust_main(cpu_id: usize, arg: usize) -> ! {
     }
 
     #[cfg(feature = "watchdog")]
-    axwatchdog::init_primary(axwatchdog::HARD_LOCKUP_THRESHOLD);
+    axwatchdog::init_primary();
 
     #[cfg(all(feature = "tls", not(feature = "multitask")))]
     {
