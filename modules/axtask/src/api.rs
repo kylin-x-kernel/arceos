@@ -261,24 +261,17 @@ pub fn run_idle() -> ! {
 }
 
 /// Print all tasks in the global task queue of the specified CPU.
-pub fn show_global_task_queue(cpu_id: usize){
+pub fn dump_cpu_task_stack(cpu_id: usize){
     for weaktask in crate::run_queue::get_global_task_queue(cpu_id).lock().iter() {
         if let Some(task) = weaktask.upgrade() {
-            warn!("cpu_id: {}, {:?}",cpu_id,task.inner());
+            error!("cpu_id: {}, {:?}",cpu_id,task.inner());
+            let ctx = task.inner().ctx();
+            let bt = axbacktrace::Backtrace::capture_trap(
+                ctx.r29 as usize, // fp
+                ctx.lr as usize,  // ip
+                ctx.lr as usize,  // ra
+            );
+            error!("{bt}");
         }
     }
-}
-
-pub fn show_curr_task_backtrace() {
-    let task = current();
-    warn!("curr_task: {:?}",task.inner());
-    let ctx = task.inner().ctx();
-
-    let bt = axbacktrace::Backtrace::capture_trap(
-        ctx.r29 as usize, // fp
-        ctx.lr as usize,  // ip
-        ctx.lr as usize,  // ra
-    );
-
-    warn!("{bt}");
 }

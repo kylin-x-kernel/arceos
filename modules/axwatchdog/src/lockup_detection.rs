@@ -119,7 +119,7 @@ pub fn timer_tick() {
     }
 }
 
-/// Check comprehensive health of a CPU.
+/// Check softlockup of a CPU.
 #[inline]
 pub fn check_softlockup(now_ns: u64) -> bool {
     unsafe {
