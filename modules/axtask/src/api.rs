@@ -68,6 +68,14 @@ impl kernel_guard::KernelGuardIf for KernelGuardIfImpl {
             curr.enable_preempt(true);
         }
     }
+
+    fn local_irq_save_and_disable() -> usize {
+        axhal::irq::local_irq_save_and_disable()
+    }
+
+    fn local_irq_restore(flags: usize) {
+        axhal::irq::local_irq_restore(flags);
+    }   
 }
 
 /// Gets the current task, or returns [`None`] if the current task is not
