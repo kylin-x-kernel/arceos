@@ -32,13 +32,17 @@ fn init_common() {
                 return;
             }
 
-            for i in 0..4 {
+            // (Optional) stop other CPUs via NMI_IPI
+            // axhal::percpu::send_nmi_ipi_to_all_other_cpus();
+
+            for i in 0..axconfig::plat::CPU_NUM {
                 axtask::dump_cpu_task_stack(i);
             }
 
             HARDLOCKUP_REPORTED.store(false, Ordering::Release);
-            // (Optional) trigger other CPUs to dump via IPI/NMI
-            // crate::trigger_other_cpu_backtrace(cpu);
+
+            // (Optional) panic after dumping all CPUs
+            // panic!("Hard lockup detected");
         }
     });
 
