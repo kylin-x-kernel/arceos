@@ -1,0 +1,20 @@
+[package]
+name = "axwatchdog"
+version = "0.1.0"
+edition = "2024"
+authors = ["ZhiXian Luo <luozhixian@kylinos.cn>"]
+license = "Apache-2.0"
+description = "Watchdog timer with NMI support for embedded systems"
+keywords = ["watchdog", "nmi", "embedded", "no_std"]
+categories = ["no-std", "embedded", "hardware-support"]
+
+[features]
+default = ["axhal/nmi"]
+
+[dependencies]
+axconfig.workspace = true
+axhal.workspace = true
+cfg-if.workspace = true
+log.workspace = true
+percpu.workspace = true
+lazyinit.workspace = true

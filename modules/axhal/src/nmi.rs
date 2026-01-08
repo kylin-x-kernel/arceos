@@ -1,0 +1,1 @@
+pub use axplat::nmi::{init, enable, register_nmi_handler};

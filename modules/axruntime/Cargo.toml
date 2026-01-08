@@ -31,6 +31,8 @@ vsock = ["net", "dep:axdriver"]
 rtc = []
 driver-dyn = ["axdriver/dyn"]
 crosvm = ["vsock", "axfs/crosvm"]
+watchdog = ["dep:axwatchdog"]
+pmu = ["irq", "axhal/pmu"]
 
 [dependencies]
 axalloc = { workspace = true, optional = true }
@@ -47,6 +49,7 @@ axmm = { workspace = true, optional = true }
 axnet = { workspace = true, optional = true }
 axplat = { workspace = true }
 axtask = { workspace = true, optional = true }
+axwatchdog = { workspace = true, optional = true }
 chrono.workspace = true
 crate_interface.workspace = true
 ctor_bare.workspace = true

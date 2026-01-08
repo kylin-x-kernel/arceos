@@ -223,6 +223,9 @@ pub fn rust_main(cpu_id: usize, arg: usize) -> ! {
         init_interrupt();
     }
 
+    #[cfg(feature = "watchdog")]
+    axwatchdog::init_primary();
+
     #[cfg(all(feature = "tls", not(feature = "multitask")))]
     {
         info!("Initialize thread local storage...");
@@ -309,6 +312,15 @@ fn init_interrupt() {
     #[cfg(feature = "ipi")]
     axhal::irq::register(axhal::irq::IPI_IRQ, || {
         axipi::ipi_handler();
+    });
+
+    #[cfg(feature = "pmu")]
+    axhal::irq::register(axconfig::devices::PMU_IRQ, || {
+        debug!(
+            "PMU interrupt received on cpu {}",
+            axhal::percpu::this_cpu_id()
+        );
+        axhal::pmu::handle_overflows();
     });
 
     // Enable IRQs before starting app
