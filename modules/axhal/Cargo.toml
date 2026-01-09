@@ -63,6 +63,7 @@ ipi = ["irq"]
 [dependencies]
 axalloc = { workspace = true, optional = true }
 axconfig.workspace = true
+crate_interface = "0.1.4"
 axcpu = { git = "https://github.com/arceos-org/axcpu.git", tag = "dev-v03" }
 axplat.workspace = true
 cfg-if.workspace = true

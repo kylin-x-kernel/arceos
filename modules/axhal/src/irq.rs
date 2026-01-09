@@ -1,7 +1,7 @@
 //! Interrupt management.
 
 use core::sync::atomic::{AtomicUsize, Ordering};
-
+use crate::context::TrapFrame;
 use axcpu::trap::{IRQ, register_trap_handler};
 
 pub use axplat::irq::{handle, register, set_enable, unregister, set_priority, local_irq_save_and_disable, local_irq_restore};
@@ -36,10 +36,10 @@ pub fn register_irq_hook(hook: fn(usize)) -> bool {
 ///
 /// Make sure called in an interrupt context or hypervisor VM exit handler.
 #[register_trap_handler(IRQ)]
-pub fn irq_handler(vector: usize) -> bool {
+pub fn irq_handler(vector: usize, tf: &TrapFrame) -> bool {
     let guard = kernel_guard::NoPreempt::new();
 
-    if let Some(irq) = handle(vector) {
+    if let Some(irq) = handle(vector, tf) {
         let hook = IRQ_HOOK.load(Ordering::SeqCst);
         if hook != 0 {
             let hook = unsafe { core::mem::transmute::<usize, fn(usize)>(hook) };
@@ -49,4 +49,21 @@ pub fn irq_handler(vector: usize) -> bool {
 
     drop(guard); // rescheduling may occur when preemption is re-enabled.
     true
+}
+
+struct IrqCtlIfImpl;
+
+#[crate_interface::impl_interface]
+impl axcpu::IrqCtlIf for IrqCtlIfImpl {
+    fn disable_irqs() {
+        Self::disable_irqs();
+    }
+
+    fn enable_irqs() {
+        Self::enable_irqs();
+    }
+
+    fn irqs_enabled() -> bool {
+        Self::irqs_enabled()
+    }
 }

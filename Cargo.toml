@@ -118,4 +118,4 @@ axplat-aarch64-phytium-pi = { git = "https://github.com/arceos-org/axplat_crates
 axplat-x86-pc = { git = "https://github.com/kylin-x-kernel/axplat_crates.git", branch = "dev" }
 axplat-riscv64-qemu-virt = { git = "https://github.com/kylin-x-kernel/axplat_crates.git", branch = "dev"}
 axplat-loongarch64-qemu-virt = { git = "https://github.com/kylin-x-kernel/axplat_crates.git" , branch = "dev"}
-axplat-aarch64-peripherals = { git = "https://github.com/kylin-x-kernel/axplat_crates.git" , branch = "dev"}
+axplat-aarch64-peripherals = { git = "https://github.com/kylin-x-kernel/axplat_crates.git" , branch = "tf"}
