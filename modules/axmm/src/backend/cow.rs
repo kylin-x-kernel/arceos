@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, collections::btree_map::BTreeMap, sync::Arc};
+use alloc::{boxed::Box, sync::Arc, collections::BTreeMap};
 use core::slice;
 
 use axerrno::{AxError, AxResult};
@@ -16,27 +16,55 @@ use crate::{
     backend::{Backend, BackendOps, alloc_frame, dealloc_frame, pages_in},
 };
 
-static FRAME_TABLE: SpinNoIrq<BTreeMap<PhysAddr, u8>> = SpinNoIrq::new(BTreeMap::new());
+struct FrameRefCnt(u8);
 
-fn inc_frame_ref(paddr: PhysAddr) {
-    let mut table = FRAME_TABLE.lock();
-    *table.entry(paddr).or_insert(0) += 1;
-}
-
-fn dec_frame_ref(paddr: PhysAddr) -> usize {
-    let mut table = FRAME_TABLE.lock();
-    if let Some(count) = table.get_mut(&paddr) {
-        let prev = *count;
-        if prev == 1 {
-            table.remove(&paddr);
-        } else {
-            *count -= 1;
+impl FrameRefCnt {
+    // This function may lock FRAME_TABLE again, so the caller should drop the lock first.
+    fn drop_frame(&mut self, paddr: PhysAddr, page_size: PageSize) {
+        assert!(self.0 > 0, "dropping unreferenced frame");
+        self.0 -= 1;
+        if self.0 == 0 {
+            // Should remove the frame_table first and then dealloc the frame
+            // to avoid if first dealloc the frame and another thread
+            // can alloc the same frame before we remove the table entry.
+            // But here we can't access the frame table, so just leave it to
+            // the caller.
+            FRAME_TABLE.lock().remove_frame(paddr);
+            dealloc_frame(paddr, page_size);
         }
-        prev as usize
-    } else {
-        0
     }
 }
+
+struct FrameTableRefCount {
+    table: BTreeMap<PhysAddr, Arc<SpinNoIrq<FrameRefCnt>>>,
+}
+
+impl FrameTableRefCount {
+
+    const INITIAL_CNT: u8 = 1;
+
+    const fn new() -> Self {
+        Self {
+            table: BTreeMap::new(),
+        }
+    }
+
+    fn get_frame_ref(&mut self, paddr: PhysAddr) -> Option<Arc<SpinNoIrq<FrameRefCnt>>> {
+        self.table.get(&paddr).cloned()
+    }
+
+    fn init_frame(&mut self, paddr: PhysAddr) {
+        assert!(!self.table.contains_key(&paddr), "initializing already referenced frame");
+        self.table.insert(paddr, Arc::new(SpinNoIrq::new(FrameRefCnt(Self::INITIAL_CNT))));
+    }
+
+    fn remove_frame(&mut self, paddr: PhysAddr) {
+        assert!(self.table.contains_key(&paddr), "removing unreferenced frame");
+        self.table.remove(&paddr);
+    }
+}
+
+static FRAME_TABLE: SpinNoIrq<FrameTableRefCount> = SpinNoIrq::new(FrameTableRefCount::new());
 
 /// Copy-on-write mapping backend.
 ///
@@ -49,14 +77,19 @@ pub struct CowBackend {
 }
 
 impl CowBackend {
+    fn alloc_new_frame(&self, zeroed: bool) -> AxResult<PhysAddr> {
+        let frame = alloc_frame(zeroed, self.size)?;
+        FRAME_TABLE.lock().init_frame(frame);
+        Ok(frame)
+    }
+
     fn alloc_new_at(
         &self,
         vaddr: VirtAddr,
         flags: MappingFlags,
         pt: &mut PageTableMut,
     ) -> AxResult {
-        let frame = alloc_frame(true, self.size)?;
-        inc_frame_ref(frame);
+        let frame = self.alloc_new_frame(true)?;
 
         if let Some((file, file_start, file_end)) = &self.file {
             let buf = unsafe {
@@ -86,28 +119,29 @@ impl CowBackend {
         flags: MappingFlags,
         pt: &mut PageTableMut,
     ) -> AxResult {
-        match dec_frame_ref(paddr) {
-            0 => unreachable!(),
-            // There is only one AddrSpace reference to the page,
-            // so there is no need to copy it.
+        let mut frame_table = FRAME_TABLE.lock();
+        let frame = frame_table.get_frame_ref(paddr).ok_or(AxError::BadAddress)?;
+        drop(frame_table);
+        let mut frame = frame.lock();
+        assert!(frame.0 > 0, "invalid frame reference count");
+        match frame.0 {
             1 => {
-                inc_frame_ref(paddr);
+                // Only one reference, just upgrade the permissions.
                 pt.protect(vaddr, flags)?;
+                return Ok(());
             }
-            // Allocates the new page and copies the contents of the original page,
-            // remapping the virtual address to the physical address of the new page.
-            2.. => {
-                let new_frame = alloc_frame(false, self.size)?;
-                inc_frame_ref(new_frame);
+            _ => {
+                // Multiple references, need to copy the frame.
+                let new_frame = self.alloc_new_frame(false)?;
                 unsafe {
                     core::ptr::copy_nonoverlapping(
-                        phys_to_virt(paddr).as_ptr(),
-                        phys_to_virt(new_frame).as_mut_ptr(),
-                        self.size as _,
+                    phys_to_virt(paddr).as_ptr(),
+                    phys_to_virt(new_frame).as_mut_ptr(),
+                    self.size as _,
                     );
                 }
-
                 pt.remap(vaddr, new_frame, flags)?;
+                frame.drop_frame(paddr, self.size);
             }
         }
 
@@ -130,9 +164,9 @@ impl BackendOps for CowBackend {
         for addr in pages_in(range, self.size)? {
             if let Ok((frame, _flags, page_size)) = pt.unmap(addr) {
                 assert_eq!(page_size, self.size);
-                if dec_frame_ref(frame) == 1 {
-                    dealloc_frame(frame, self.size);
-                }
+                let frame_ref = FRAME_TABLE.lock().get_frame_ref(frame).ok_or(AxError::BadAddress)?;
+                let mut frame_ref = frame_ref.lock();
+                frame_ref.drop_frame(frame, self.size);
             } else {
                 // Deallocation is needn't if the page is not allocated.
             }
@@ -166,7 +200,7 @@ impl BackendOps for CowBackend {
                     self.alloc_new_at(addr, flags, pt)?;
                     pages += 1;
                 }
-                Err(_) => return Err(AxError::BadAddress),
+                Err(_) =>  return Err(AxError::BadAddress)
             }
         }
         Ok((pages, None))
@@ -191,8 +225,10 @@ impl BackendOps for CowBackend {
                     // - Update its permissions in the old page table using `flags`.
                     // - Map the same physical page into the new page table at the same
                     // virtual address, with the same page size and `flags`.
-                    inc_frame_ref(paddr);
-
+                    let frame = FRAME_TABLE.lock().get_frame_ref(paddr).ok_or(AxError::BadAddress)?;
+                    let mut frame = frame.lock();
+                    assert!(frame.0 > 0, "referencing unreferenced frame");
+                    frame.0 += 1;
                     old_pt.protect(vaddr, cow_flags)?;
                     new_pt.map(vaddr, paddr, self.size, cow_flags)?;
                 }
