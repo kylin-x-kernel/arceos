@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use crate::context::TrapFrame;
 use axcpu::trap::{IRQ, register_trap_handler};
 
-pub use axplat::irq::{handle, register, set_enable, unregister, set_priority, local_irq_save_and_disable, local_irq_restore};
+pub use axplat::irq::{handle, register, set_enable, unregister, set_priority, local_irq_save_and_disable, local_irq_restore, enable_irqs, disable_irqs, irqs_enabled};
 
 #[cfg(feature = "ipi")]
 pub use axplat::irq::{IpiTarget, send_ipi};
@@ -56,14 +56,14 @@ struct IrqCtlIfImpl;
 #[crate_interface::impl_interface]
 impl axcpu::IrqCtlIf for IrqCtlIfImpl {
     fn disable_irqs() {
-        Self::disable_irqs();
+        disable_irqs();
     }
 
     fn enable_irqs() {
-        Self::enable_irqs();
+        enable_irqs();
     }
 
     fn irqs_enabled() -> bool {
-        Self::irqs_enabled()
+        irqs_enabled()
     }
 }

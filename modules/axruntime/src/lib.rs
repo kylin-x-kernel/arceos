@@ -303,7 +303,7 @@ fn init_interrupt() {
         axhal::time::set_oneshot_timer(deadline);
     }
 
-    axhal::irq::register(axhal::time::irq_num(), || {
+    axhal::irq::register(axhal::time::irq_num(), |_| {
         update_timer();
         #[cfg(feature = "multitask")]
         axtask::on_timer_tick();
@@ -315,12 +315,12 @@ fn init_interrupt() {
     });
 
     #[cfg(feature = "pmu")]
-    axhal::irq::register(axconfig::devices::PMU_IRQ, || {
+    axhal::irq::register(axconfig::devices::PMU_IRQ, |tf| {
         debug!(
             "PMU interrupt received on cpu {}",
             axhal::percpu::this_cpu_id()
         );
-        axhal::pmu::handle_overflows();
+        axhal::pmu::handle_overflows(tf);
     });
 
     // Enable IRQs before starting app

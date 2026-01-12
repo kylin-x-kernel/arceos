@@ -3,7 +3,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use axtask::{AxCpuMask, TaskInner};
 use log::debug;
 
-static HARDLOCKUP_REPORTED: AtomicBool = AtomicBool::new(false);
+static REPORTED: AtomicBool = AtomicBool::new(false);
 
 /// Common watchdog initialization for both primary and secondary CPUs.
 ///
@@ -16,15 +16,19 @@ fn init_common() {
     // Register hard lockup detection task.
     crate::register_hardlockup_detection_task();
 
+    // Register mutex deadlock check
+    crate::register_watchdog_task(&crate::watchdog_task::MUTEX_DEADLOCK_CHECK);
+
     // Initialize and enable NMI source for hard lockup detection.
-    axhal::nmi::init(axhal::time::timer_frequency() * 10);
+    axhal::nmi::init(axhal::time::timer_frequency() * 10 * 16);
     axhal::nmi::enable();
 
     // Register NMI handler
-    axhal::nmi::register_nmi_handler(|| {
+    axhal::nmi::register_nmi_handler(|tf| {
         if let Some(_failed_task_id) = crate::watchdog_task::check_watchdog_tasks() {
+            axtask::dump_cur_task_backtrace(tf);
             // Only one CPU is allowed to dump globally
-            if HARDLOCKUP_REPORTED
+            if REPORTED
                 .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
                 .is_err()
             {
@@ -34,15 +38,13 @@ fn init_common() {
 
             // (Optional) stop other CPUs via NMI_IPI
             // axhal::percpu::send_nmi_ipi_to_all_other_cpus();
-
-            for i in 0..axconfig::plat::CPU_NUM {
-                axtask::dump_cpu_task_stack(i);
+            for i in 0..axconfig::plat::CPU_NUM{
+                axtask::dump_cpu_task_backtrace(i);
             }
+            
 
-            HARDLOCKUP_REPORTED.store(false, Ordering::Release);
-
-            // (Optional) panic after dumping all CPUs
-            // panic!("Hard lockup detected");
+            // panic after dumping all CPUs
+            panic!("Watchdog task check failed");
         }
     });
 
@@ -63,7 +65,7 @@ pub fn init_softlockup_detection() {
         crate::timer_tick();
 
         if crate::check_softlockup(now_ns) {
-            axtask::dump_cpu_task_stack(axhal::percpu::this_cpu_id());
+            axtask::dump_cpu_task_backtrace(axhal::percpu::this_cpu_id());
         }
     });
 
@@ -84,9 +86,96 @@ pub fn init_softlockup_detection() {
 }
 
 pub fn init_primary() {
+    // init_test1();
     init_common();
 }
 
 pub fn init_secondary() {
+    // init_test2();
     init_common();
 }
+
+/*
+static L1: SpinNoIrq<u8> = SpinNoIrq::new(1);
+
+static L2: SpinNoIrq<u8> = SpinNoIrq::new(2);
+
+pub fn init_test1() {
+    // Watchdog task that periodically "touches" the soft lockup timestamp.
+    let watchdog_task = TaskInner::new(
+        move || {
+                    let l2 = L2.lock();
+                    warn!("cpu {} get L2 lock",axhal::percpu::this_cpu_id());
+                    axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
+                    let l1 = L1.lock();
+                    warn!("cpu {} get L1 lock",axhal::percpu::this_cpu_id());
+                    warn!("{:?}{:?}",l1,l2);
+        },
+        "test1".into(),
+        axconfig::TASK_STACK_SIZE,
+    );
+    // Bind watchdog task to the local CPU.
+    watchdog_task.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
+    axtask::spawn_task(watchdog_task);
+}
+
+#[inline(never)]
+fn test2_task_fn() {
+    use axhal::time::Duration;
+    use axhal::time::busy_wait;
+    use axhal::percpu::this_cpu_id;
+    let l1 = L1.lock();
+    warn!("cpu {} get L1 lock", this_cpu_id());
+    busy_wait(Duration::from_secs(30));
+    let l2 = L2.lock();
+    warn!("cpu {} get L2 lock", this_cpu_id());
+    warn!("{:?}{:?}", l1, l2);
+}
+
+
+pub fn init_test2() {
+
+    let watchdog_task = TaskInner::new(test2_task_fn, "test2".into(), axconfig::TASK_STACK_SIZE);
+    // Bind watchdog task to the local CPU.
+    watchdog_task.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
+    axtask::spawn_task(watchdog_task);
+}
+
+use axsync::Mutex;
+
+static M1: Mutex<u8> = Mutex::new(1);
+static M2: Mutex<u8> = Mutex::new(2);
+
+pub fn init_test1() {
+    let t1 = TaskInner::new(
+        move || {
+            let _m2 = M2.lock();
+            axhal::time::busy_wait(axhal::time::Duration::from_secs(1));
+            let _m1 = M1.lock();
+        },
+        "test_mutex_21".into(),
+        axconfig::TASK_STACK_SIZE,
+    );
+
+    t1.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
+    axtask::spawn_task(t1);
+}
+
+#[inline(never)]
+fn test2_task_fn() {
+    let _m1 = M1.lock();
+    axhal::time::busy_wait(axhal::time::Duration::from_secs(1));
+    let _m2 = M2.lock();
+}
+
+pub fn init_test2() {
+    let t2 = TaskInner::new(
+        test2_task_fn,
+        "test_mutex_12".into(),
+        axconfig::TASK_STACK_SIZE,
+    );
+
+    t2.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
+    axtask::spawn_task(t2);
+}
+*/

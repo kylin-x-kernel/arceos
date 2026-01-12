@@ -45,15 +45,15 @@ percpu_static! {
     PREV_TASK: Weak<crate::AxTask> = Weak::new(),
 }
 
-use {kspin::SpinNoIrq, alloc::vec::Vec, crate::WeakAxTaskRef};
+use {alloc::vec::Vec, crate::WeakAxTaskRef};
 
 /// Stores all tasks for each CPU except those in the 'exited' state.
-static mut GLOBAL_TASK_QUEUES: [SpinNoIrq<Vec<WeakAxTaskRef>>; axconfig::plat::CPU_NUM] =
-    [ const { SpinNoIrq::new(Vec::new()) }; axconfig::plat::CPU_NUM];
+static mut GLOBAL_TASK_QUEUES: [SpinRaw<Vec<WeakAxTaskRef>>; axconfig::plat::CPU_NUM] =
+    [ const { SpinRaw::new(Vec::new()) }; axconfig::plat::CPU_NUM];
 
 /// Returns a mutable reference to the global task queue of the given CPU.
 #[inline]
-pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static SpinNoIrq<Vec<WeakAxTaskRef>>{
+pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static SpinRaw<Vec<WeakAxTaskRef>>{
     unsafe { &GLOBAL_TASK_QUEUES[cpu_id] }
 }
 
