@@ -84,7 +84,11 @@ unsafe impl lock_api::RawMutex for RawMutex {
                     Ordering::Acquire,
                     Ordering::Relaxed,
                 ) {
-                    Ok(_) => break,
+                    Ok(_) => {
+                        current().inner().bt_push_held_lock(axtask::LockTag {addr: self as *const _ as usize,kind: axtask::LockKind::Mutex,});
+                        current().inner().bt_clear_waiting_lock();
+                        break;
+                    },
                     Err(x) => owner_id = x,
                 }
                 continue;
@@ -101,7 +105,8 @@ unsafe impl lock_api::RawMutex for RawMutex {
             if owner_id == 0 {
                 continue;
             }
-
+            let now = axhal::time::current_ticks();
+            current().inner().bt_set_waiting_lock(self as *const _ as usize, now as usize);
             block_on(listener);
             owner_id = self.owner_id.load(Ordering::Acquire);
         }
@@ -110,13 +115,22 @@ unsafe impl lock_api::RawMutex for RawMutex {
     #[inline(always)]
     fn try_lock(&self) -> bool {
         let current_id = current().id().as_u64();
-        // The reason for using a strong compare_exchange is explained here:
-        // https://github.com/Amanieu/parking_lot/pull/207#issuecomment-575869107
-        self.owner_id
+
+        if self.owner_id
             .compare_exchange(0, current_id, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
+        {
+            current()
+                .inner()
+                .bt_push_held_lock(axtask::LockTag {
+                    addr: self as *const _ as usize,
+                    kind: axtask::LockKind::Mutex,
+                });
+            true
+        } else {
+            false
+        }
     }
-
     #[inline(always)]
     unsafe fn unlock(&self) {
         let owner_id = self.owner_id.swap(0, Ordering::Release);
@@ -126,6 +140,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
             "{} tried to release mutex it doesn't own",
             current().id_name()
         );
+        current().inner().bt_pop_held_lock(self as *const _ as usize);
         self.event.notify(1);
     }
 

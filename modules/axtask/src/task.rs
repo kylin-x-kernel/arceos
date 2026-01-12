@@ -56,6 +56,20 @@ pub unsafe trait TaskExt {
     fn on_leave(&self) {}
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct LockTag {
+    pub addr: usize,        // 锁地址
+    pub kind: LockKind,     // Mutex / Spin / Rw
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum LockKind {
+    Mutex,
+    Spin,
+    RwRead,
+    RwWrite,
+}
+
 /// The inner task structure.
 pub struct TaskInner {
     id: TaskId,
@@ -94,6 +108,12 @@ pub struct TaskInner {
 
     #[cfg(feature = "tls")]
     tls: TlsArea,
+
+    pub bt_waiting_lock: AtomicUsize, // 0 = none, else lock addr
+
+    pub bt_held_locks: SpinNoIrq<[Option<LockTag>; 4]>,
+
+    pub bt_waiting_since: AtomicUsize,
 }
 
 impl TaskId {
@@ -263,6 +283,39 @@ impl TaskInner {
         self.interrupted.store(true, Ordering::Release);
         self.interrupt_waker.wake();
     }
+
+    #[inline(always)]
+    pub fn bt_set_waiting_lock(&self, lock: usize, now: usize) {
+        self.bt_waiting_since.store(now, Ordering::Relaxed);
+        self.bt_waiting_lock.store(lock, Ordering::Release);
+    }
+
+    #[inline(always)]
+    pub fn bt_clear_waiting_lock(&self) {
+        self.bt_waiting_lock.store(0, Ordering::Release);
+        self.bt_waiting_since.store(0, Ordering::Relaxed);
+    }
+
+    pub fn bt_push_held_lock(&self, lock: LockTag) {
+        let mut slots = self.bt_held_locks.lock();
+        for slot in slots.iter_mut() {
+            if slot.is_none() {
+                *slot = Some(lock);
+                return;
+            }
+        }
+        // overflow: silently drop (debug only)
+    }
+
+    pub fn bt_pop_held_lock(&self, addr: usize) {
+        let mut slots = self.bt_held_locks.lock();
+        for slot in slots.iter_mut() {
+            if slot.map(|l| l.addr) == Some(addr) {
+                *slot = None;
+                return;
+            }
+        }
+    }
 }
 
 // private methods
@@ -299,6 +352,9 @@ impl TaskInner {
             task_ext: None,
             #[cfg(feature = "tls")]
             tls: TlsArea::alloc(),
+            bt_waiting_lock: AtomicUsize::new(0),
+            bt_held_locks: SpinNoIrq::new([None, None, None, None]),
+            bt_waiting_since: AtomicUsize::new(0),
         }
     }
 
@@ -453,10 +509,21 @@ impl TaskInner {
 
 impl fmt::Debug for TaskInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let waiting = self.bt_waiting_lock.load(Ordering::Relaxed);
+        let locks = self.bt_held_locks.lock();
+
+        let waiting_opt = if waiting == 0 {
+            None
+        } else {
+            Some(waiting)
+        };
+
         f.debug_struct("TaskInner")
             .field("id", &self.id)
             .field("name", &self.name)
             .field("state", &self.state())
+            .field("waiting_lock", &waiting_opt)
+            .field("held_locks", &*locks)
             .finish()
     }
 }

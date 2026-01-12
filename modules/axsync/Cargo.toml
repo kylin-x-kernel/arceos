@@ -18,6 +18,7 @@ axtask.workspace = true
 event-listener.workspace = true
 kspin.workspace = true
 lock_api.workspace = true
+axhal.workspace = true
 
 [dev-dependencies]
 axsync = { workspace = true, features = ["multitask"] }
