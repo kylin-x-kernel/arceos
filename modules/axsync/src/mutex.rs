@@ -102,9 +102,15 @@ unsafe impl lock_api::RawMutex for RawMutex {
                 continue;
             }
 
+            // record wait mutex addr
+            current().set_blocked_by_mutex(self as *const _ as usize as _);
             block_on(listener);
             owner_id = self.owner_id.load(Ordering::Relaxed);
         }
+
+        // clear wait mutex address
+        current().set_blocked_by_mutex(0);
+        current().set_hold_mutex(self as *const _ as usize as _);
     }
 
     #[inline(always)]
@@ -112,9 +118,13 @@ unsafe impl lock_api::RawMutex for RawMutex {
         let current_id = current().id().as_u64();
         // The reason for using a strong compare_exchange is explained here:
         // https://github.com/Amanieu/parking_lot/pull/207#issuecomment-575869107
-        self.owner_id
+        let res = self.owner_id
             .compare_exchange(0, current_id, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
+            .is_ok();
+        if res {
+            current().set_hold_mutex(self as *const _ as usize as _);
+        }
+        res
     }
 
     #[inline(always)]
@@ -126,6 +136,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
             "{} tried to release mutex it doesn't own",
             current().id_name()
         );
+        current().remove_hold_mutex(self as *const _ as usize as _);
         self.event.notify(1);
     }
 

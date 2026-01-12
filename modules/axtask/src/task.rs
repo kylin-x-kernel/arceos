@@ -92,6 +92,10 @@ pub struct TaskInner {
     #[cfg(feature = "task-ext")]
     task_ext: Option<AxTaskExt>,
 
+    blocked_by_mutex: AtomicU64,
+
+    hold_mutex: SpinNoIrq<[u64; 4]>,
+
     #[cfg(feature = "tls")]
     tls: TlsArea,
 }
@@ -200,6 +204,10 @@ impl TaskInner {
         self.ctx.get_mut()
     }
 
+    pub const fn ctx(&self) -> &TaskContext {
+        unsafe { &*self.ctx.get() }
+    }
+
     /// Returns the top address of the kernel stack.
     #[inline]
     pub const fn kernel_stack_top(&self) -> Option<VirtAddr> {
@@ -293,6 +301,9 @@ impl TaskInner {
             task_ext: None,
             #[cfg(feature = "tls")]
             tls: TlsArea::alloc(),
+
+            blocked_by_mutex: AtomicU64::new(0),
+            hold_mutex: SpinNoIrq::new([0; 4]),
         }
     }
 
@@ -343,6 +354,52 @@ impl TaskInner {
                 Ordering::Acquire,
             )
             .is_ok()
+    }
+
+    /// Sets the mutex address that the task is blocked by.
+    pub fn set_blocked_by_mutex(&self, mutex_addr: u64) {
+        self.blocked_by_mutex.store(mutex_addr, Ordering::Release);
+    }
+
+    /// Gets the mutex address that the task is blocked by.
+    pub fn get_blocked_by_mutex(&self) -> u64 {
+        self.blocked_by_mutex.load(Ordering::Acquire)
+    }
+
+    /// Sets the mutex address that the task is holding.
+    pub fn set_hold_mutex(&self, mutex_addr: u64) {
+        for hold_mutex in &mut self.hold_mutex.lock().iter_mut() {
+            if *hold_mutex == 0 {
+                *hold_mutex = mutex_addr;
+                return;
+            }
+        }
+        panic!(
+            "task {} try to hold too many mutexes, cannot hold mutex {:x}",
+            self.id_name(),
+            mutex_addr
+        );
+    }
+
+    /// Gets the mutex address without alloc mem that the task is holding.
+    pub fn get_hold_mutex(&self) -> [u64; 4] {
+        self.hold_mutex.lock().clone()
+    }
+
+
+    /// Removes the mutex address that the task is holding.
+    pub fn remove_hold_mutex(&self, mutex_addr: u64) {
+        for hold_mutex in &mut self.hold_mutex.lock().iter_mut() {
+            if *hold_mutex == mutex_addr {
+                *hold_mutex = 0;
+                return;
+            }
+        }
+        panic!(
+            "task {} try to remove unheld mutex {:x}",
+            self.id_name(),
+            mutex_addr
+        );
     }
 
     #[inline]
