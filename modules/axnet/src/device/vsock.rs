@@ -10,7 +10,6 @@ use axsync::Mutex;
 use axtask::future::{block_on, interruptible};
 
 use crate::{alloc::string::ToString, vsock::connection_manager::VSOCK_CONN_MANAGER};
-use alloc::collections::VecDeque;
 
 // we need a global and static only one vsock device
 static VSOCK_DEVICE: Mutex<Option<AxVsockDevice>> = Mutex::new(None);
