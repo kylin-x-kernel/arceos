@@ -1,3 +1,4 @@
+use alloc::collections::VecDeque;
 use core::{
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::Duration,
@@ -9,7 +10,6 @@ use axsync::Mutex;
 use axtask::future::{block_on, interruptible};
 
 use crate::{alloc::string::ToString, vsock::connection_manager::VSOCK_CONN_MANAGER};
-use alloc::collections::VecDeque;
 
 // we need a global and static only one vsock device
 static VSOCK_DEVICE: Mutex<Option<AxVsockDevice>> = Mutex::new(None);
@@ -94,7 +94,7 @@ pub fn stop_vsock_poll() {
     }
     *count -= 1;
     let new_count = *count;
-    debug!("stop_vsock_poll: ref_count -> {}", new_count);
+    debug!("stop_vsock_poll: ref_count -> {new_count}");
 }
 
 fn vsock_poll_loop() {
@@ -122,10 +122,7 @@ async fn poll_interfaces_adaptive() -> AxResult<()> {
 
     let (idle_count, interval_us) = POLL_FREQUENCY.stats();
     if idle_count > 0 && idle_count % 10 == 0 {
-        trace!(
-            "Poll frequency: idle_count={}, interval={}μs",
-            idle_count, interval_us
-        );
+        trace!("Poll frequency: idle_count={idle_count}, interval={interval_us}μs",);
     }
     axtask::future::sleep(interval).await;
     Ok(())
@@ -135,12 +132,13 @@ fn poll_vsock_interfaces() -> AxResult<bool> {
     let mut guard = VSOCK_DEVICE.lock();
     let dev = guard.as_mut().ok_or(AxError::NotFound)?;
     let mut event_count = 0;
+    let mut buf = alloc::vec![0; VSOCK_RX_TMPBUF_SIZE];
 
     // Process pending events first
     // Use core::mem::take to atomically move all events out and empty the global queue
     let pending_events = core::mem::take(&mut *PENDING_EVENTS.lock());
     for event in pending_events {
-        handle_vsock_event(event, dev);
+        handle_vsock_event(event, dev, &mut buf);
     }
 
     loop {
@@ -148,10 +146,10 @@ fn poll_vsock_interfaces() -> AxResult<bool> {
             Ok(None) => break, // no more events
             Ok(Some(event)) => {
                 event_count += 1;
-                handle_vsock_event(event, dev);
+                handle_vsock_event(event, dev, &mut buf);
             }
             Err(e) => {
-                info!("Failed to poll vsock event: {:?}", e);
+                info!("Failed to poll vsock event: {e:?}");
                 break;
             }
         }
@@ -159,14 +157,14 @@ fn poll_vsock_interfaces() -> AxResult<bool> {
     Ok(event_count > 0)
 }
 
-fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
+fn handle_vsock_event(event: VsockDriverEvent, dev: &mut AxVsockDevice, buf: &mut [u8]) {
     let mut manager = VSOCK_CONN_MANAGER.lock();
-    debug!("Handling vsock event: {:?}", event);
+    debug!("Handling vsock event: {event:?}");
 
     match event {
         VsockDriverEvent::ConnectionRequest(conn_id) => {
             if let Err(e) = manager.on_connection_request(conn_id) {
-                warn!("Connection request failed: {:?}, error={:?}", conn_id, e);
+                info!("Connection request failed: {conn_id:?}, error={e:?}");
             }
         }
 
@@ -174,38 +172,39 @@ fn handle_vsock_event(event: VsockDriverEvent, dev: &mut dyn VsockDriverOps) {
             let free_space = if let Some(conn) = manager.get_connection(conn_id) {
                 conn.lock().rx_buffer_free()
             } else {
-                warn!("Received data for unknown connection: {:?}", conn_id);
+                info!("Received data for unknown connection: {conn_id:?}");
                 return;
             };
 
             if free_space == 0 {
-                PENDING_EVENTS.lock().push_back(VsockDriverEvent::Received(conn_id, len));
+                PENDING_EVENTS
+                    .lock()
+                    .push_back(VsockDriverEvent::Received(conn_id, len));
                 return;
             }
 
-            let mut buf = alloc::vec![0; VSOCK_RX_TMPBUF_SIZE];
             let max_read = core::cmp::min(free_space, buf.len());
             match dev.recv(conn_id, &mut buf[..max_read]) {
                 Ok(read_len) => {
                     if let Err(e) = manager.on_data_received(conn_id, &buf[..read_len]) {
-                       warn!("Failed to handle received data: conn_id={:?}, error={:?}", conn_id, e);
+                        info!("Failed to handle received data: conn_id={conn_id:?}, error={e:?}",);
                     }
                 }
                 Err(e) => {
-                    warn!("Failed to receive vsock data: conn_id={:?}, error={:?}", conn_id, e);
+                    info!("Failed to receive vsock data: conn_id={conn_id:?}, error={e:?}",);
                 }
             }
         }
 
         VsockDriverEvent::Disconnected(conn_id) => {
             if let Err(e) = manager.on_disconnected(conn_id) {
-                warn!("Failed to handle disconnection: {:?}, error={:?}", conn_id, e);
+                info!("Failed to handle disconnection: {conn_id:?}, error={e:?}",);
             }
         }
 
         VsockDriverEvent::Connected(conn_id) => {
             if let Err(e) = manager.on_connected(conn_id) {
-                warn!("Failed to handle connection established: {:?}, error={:?}", conn_id, e);
+                info!("Failed to handle connection established: {conn_id:?}, error={e:?}",);
             }
         }
 
