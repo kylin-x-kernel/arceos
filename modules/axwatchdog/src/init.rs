@@ -4,7 +4,7 @@ use log::debug;
 
 use crate::rendezvous as rv;
 
-/// Stores all tasks for each CPU except those in the 'exited' state.
+/// Stores the active trap frame for each CPU when a watchdog failure is detected.
 static mut TRAP_FRAMES: [Option<&TrapFrame>; axconfig::plat::CPU_NUM] =
     [ None; axconfig::plat::CPU_NUM];
 
@@ -139,11 +139,11 @@ pub fn init_test1() {
         move || {
                     axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
                     let l2 = L2.lock();
-                    warn!("cpu {} get L2 lock",axhal::percpu::this_cpu_id());
+                    warn!("cpu {} get L2 lock", axhal::percpu::this_cpu_id());
                     axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
                     let l1 = L1.lock();
-                    warn!("cpu {} get L1 lock",axhal::percpu::this_cpu_id());
-                    warn!("{:?}{:?}",l1,l2);
+                    warn!("cpu {} get L1 lock", axhal::percpu::this_cpu_id());
+                    warn!("{:?}{:?}", l1, l2);
         },
         "test1".into(),
         axconfig::TASK_STACK_SIZE,

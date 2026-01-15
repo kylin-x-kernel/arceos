@@ -107,12 +107,12 @@ pub mod trap {
 ///
 /// - [`TaskContext`][axcpu::TaskContext]: The context of a task.
 /// - [`TrapFrame`][axcpu::TrapFrame]: The context of an interrupt or an exception.
-/// 
+///
 /// In addition, this module exposes helpers to *observe* the currently active
 /// trap context on the current CPU:
 ///
 /// - [`active_trap_frame`]: Returns a best-effort reference to the trapframe
-///   that is currently active on this CPU, if any.  
+///   that is currently active on this CPU, if any.
 ///   The returned reference is **short-lived** and only valid while the CPU
 ///   remains in the corresponding trap context. It must not be stored.
 ///
