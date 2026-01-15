@@ -622,8 +622,6 @@ fn poll_gc(cx: &mut Context<'_>) -> Poll<()> {
             let _g = kernel_guard::NoPreempt::new();
             get_global_task_queue(this_cpu_id()).retain(|weak_task| weak_task.upgrade().is_some());
         }
-        
-
         // Note: we cannot block current task with preemption disabled,
         // use `current_ref_raw` to get the `WAIT_FOR_EXIT`'s reference here to avoid
         // the use of `NoPreemptGuard`. Since gc task is pinned to the current
