@@ -2,7 +2,7 @@
 pub mod init;
 pub mod lockup_detection;
 pub mod watchdog_task;
-
+pub mod rendezvous;
 pub use crate::{
     init::{init_primary, init_secondary},
     lockup_detection::{

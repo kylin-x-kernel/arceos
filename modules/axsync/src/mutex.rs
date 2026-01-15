@@ -85,8 +85,12 @@ unsafe impl lock_api::RawMutex for RawMutex {
                     Ordering::Relaxed,
                 ) {
                     Ok(_) => {
-                        current().inner().bt_push_held_lock(axtask::LockTag {addr: self as *const _ as usize,kind: axtask::LockKind::Mutex,});
-                        current().inner().bt_clear_waiting_lock();
+                        #[cfg(feature = "debug-watchdog")]{
+                            current().inner().clear_waiting_lock();
+                            current()
+                                .inner()
+                                .push_held_lock(self as *const _ as usize);
+                        }
                         break;
                     },
                     Err(x) => owner_id = x,
@@ -105,8 +109,10 @@ unsafe impl lock_api::RawMutex for RawMutex {
             if owner_id == 0 {
                 continue;
             }
-            let now = axhal::time::current_ticks();
-            current().inner().bt_set_waiting_lock(self as *const _ as usize, now as usize);
+            #[cfg(feature = "debug-watchdog")]
+            current()
+                .inner()
+                .set_waiting_lock(self as *const _ as usize, axhal::time::current_ticks() as usize);
             block_on(listener);
             owner_id = self.owner_id.load(Ordering::Acquire);
         }
@@ -120,12 +126,10 @@ unsafe impl lock_api::RawMutex for RawMutex {
             .compare_exchange(0, current_id, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
+            #[cfg(feature = "debug-watchdog")]
             current()
                 .inner()
-                .bt_push_held_lock(axtask::LockTag {
-                    addr: self as *const _ as usize,
-                    kind: axtask::LockKind::Mutex,
-                });
+                .push_held_lock(self as *const _ as usize);
             true
         } else {
             false
@@ -140,7 +144,8 @@ unsafe impl lock_api::RawMutex for RawMutex {
             "{} tried to release mutex it doesn't own",
             current().id_name()
         );
-        current().inner().bt_pop_held_lock(self as *const _ as usize);
+        #[cfg(feature = "debug-watchdog")]
+        current().inner().pop_held_lock(self as *const _ as usize);
         self.event.notify(1);
     }
 

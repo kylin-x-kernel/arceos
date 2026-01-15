@@ -45,16 +45,19 @@ percpu_static! {
     PREV_TASK: Weak<crate::AxTask> = Weak::new(),
 }
 
+#[cfg(feature = "debug-watchdog")]
 use {alloc::vec::Vec, crate::WeakAxTaskRef};
 
 /// Stores all tasks for each CPU except those in the 'exited' state.
-static mut GLOBAL_TASK_QUEUES: [SpinRaw<Vec<WeakAxTaskRef>>; axconfig::plat::CPU_NUM] =
-    [ const { SpinRaw::new(Vec::new()) }; axconfig::plat::CPU_NUM];
+#[cfg(feature = "debug-watchdog")]
+static mut GLOBAL_TASK_QUEUES: [Vec<WeakAxTaskRef>; axconfig::plat::CPU_NUM] =
+    [ const { Vec::new() }; axconfig::plat::CPU_NUM];
 
 /// Returns a mutable reference to the global task queue of the given CPU.
 #[inline]
-pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static SpinRaw<Vec<WeakAxTaskRef>>{
-    unsafe { &GLOBAL_TASK_QUEUES[cpu_id] }
+#[cfg(feature = "debug-watchdog")]
+pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static mut Vec<WeakAxTaskRef> {
+    unsafe { &mut GLOBAL_TASK_QUEUES[cpu_id] }
 }
 
 /// An array of references to run queues, one for each CPU, indexed by cpu_id.
@@ -255,7 +258,10 @@ impl<G: BaseGuard> AxRunQueueRef<'_, G> {
             self.inner.cpu_id
         );
         assert!(task.is_ready());
-        get_global_task_queue(self.inner.cpu_id).lock().push(Arc::downgrade(&task));
+        #[cfg(feature = "debug-watchdog")]{
+            let _g = kernel_guard::NoPreempt::new();
+            get_global_task_queue(this_cpu_id()).push(Arc::downgrade(&task));
+        }
         self.inner.scheduler.lock().add_task(task);
     }
 
@@ -376,9 +382,6 @@ impl<G: BaseGuard> CurrentRunQueueRef<'_, G> {
         debug!("task exit: {}, exit_code={}", curr.id_name(), exit_code);
         assert!(curr.is_running(), "task is not running: {:?}", curr.state());
         assert!(!curr.is_idle());
-        get_global_task_queue(self.inner.cpu_id).lock().retain(|weak_task| {
-            weak_task.upgrade().map_or(true, |t| t.id() != curr.id())
-        });
         if curr.is_init() {
             // Safety: it is called from `current_run_queue::<NoPreemptIrqSave>().exit_current(exit_code)`,
             // which disabled IRQs and preemption.
@@ -609,12 +612,21 @@ fn poll_gc(cx: &mut Context<'_>) -> Poll<()> {
                     drop(task);
                 }
                 Err(task) => {
-                    // Otherwise (e.g, `switch_to` is not compeleted, held by the
+                    // Otherwise (e.g, `switch_to` is not completed, held by the
                     // joiner, etc), push it back and wait for them to drop first.
                     EXITED_TASKS.with_current(|exited_tasks| exited_tasks.push_back(task));
                 }
             }
         }
+
+        // Safety: the global task queue is a `static mut` and is expected to be
+        // logically owned by its CPU. The GC task is pinned to this CPU.
+        #[cfg(feature = "debug-watchdog")]{
+            let _g = kernel_guard::NoPreempt::new();
+            get_global_task_queue(this_cpu_id()).retain(|weak_task| weak_task.upgrade().is_some());
+        }
+        
+
         // Note: we cannot block current task with preemption disabled,
         // use `current_ref_raw` to get the `WAIT_FOR_EXIT`'s reference here to avoid
         // the use of `NoPreemptGuard`. Since gc task is pinned to the current

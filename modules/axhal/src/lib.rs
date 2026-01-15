@@ -65,11 +65,7 @@ cfg_if::cfg_if! {
 
 pub mod dtb;
 pub mod mem;
-#[cfg(feature = "nmi")]
-pub mod nmi;
 pub mod percpu;
-#[cfg(feature = "pmu")]
-pub mod pmu;
 pub mod time;
 
 #[cfg(feature = "tls")]
@@ -111,8 +107,22 @@ pub mod trap {
 ///
 /// - [`TaskContext`][axcpu::TaskContext]: The context of a task.
 /// - [`TrapFrame`][axcpu::TrapFrame]: The context of an interrupt or an exception.
+/// 
+/// In addition, this module exposes helpers to *observe* the currently active
+/// trap context on the current CPU:
+///
+/// - [`active_trap_frame`]: Returns a best-effort reference to the trapframe
+///   that is currently active on this CPU, if any.  
+///   The returned reference is **short-lived** and only valid while the CPU
+///   remains in the corresponding trap context. It must not be stored.
+///
+/// - [`with_active_trap_frame`]: Executes a closure with the currently active
+///   trapframe (or `None` if not in a trap). This is intended for diagnostic
+///   paths such as watchdogs or backtrace collection.
 pub mod context {
-    pub use axcpu::{TaskContext, TrapFrame};
+    pub use axcpu::{
+        active_trap_frame, with_active_trap_frame, TaskContext, TrapFrame,
+    };
 }
 
 pub use axcpu::asm;
@@ -125,6 +135,15 @@ pub use axplat::init::init_later;
 #[cfg(feature = "smp")]
 pub use axplat::init::{init_early_secondary, init_later_secondary};
 
+#[cfg(feature = "nmi")]
+pub mod nmi {
+    pub use axplat::nmi::{init, enable, register_nmi_handler};
+}
+
+#[cfg(feature = "pmu")]
+pub mod pmu {
+    pub use axplat::pmu::{handle_overflows, register_overflow_handler};
+}
 /// Initializes the platform and boot argument.
 /// This function should be called as early as possible.
 pub fn init_early(cpu_id: usize, arg: usize) {

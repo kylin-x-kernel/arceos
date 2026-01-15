@@ -7,6 +7,7 @@ use alloc::{
     sync::{Arc, Weak},
 };
 
+#[cfg(feature = "debug-watchdog")]
 use axhal::context::TrapFrame;
 use kernel_guard::NoPreemptIrqSave;
 
@@ -26,7 +27,9 @@ pub use crate::timers::register_timer_callback;
 #[cfg(feature = "task-ext")]
 pub use crate::task::{AxTaskExt, TaskExt};
 
+#[cfg(feature = "debug-watchdog")]
 pub use crate::task::{LockKind, LockTag};
+
 /// The reference type of a task.
 pub type AxTaskRef = Arc<AxTask>;
 
@@ -262,46 +265,68 @@ pub fn run_idle() -> ! {
     }
 }
 
-/// Dump all tasks backtrace in the global task queue of the specified CPU.
-pub fn dump_cpu_task_backtrace(cpu_id: usize){
-    for weaktask in crate::run_queue::get_global_task_queue(cpu_id).lock().iter() {
-        if let Some(task) = weaktask.upgrade() && !task.inner().is_running(){
+#[cfg(feature = "debug-watchdog")]
+#[inline(always)]
+fn dump_println(force: bool, args: core::fmt::Arguments<'_>) {
+    if force {
+        axplat::console_force_println!("{}", args);
+    } else {
+        // Use log output in normal (non-NMI) contexts.
+        error!("{}", args);
+    }
+}
+
+#[cfg(feature = "debug-watchdog")]
+pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
+    for weaktask in crate::run_queue::get_global_task_queue(cpu_id).iter() {
+        if let Some(task) = weaktask.upgrade() && !task.inner().is_running() {
             let ctx = task.inner().ctx();
             let bt = axbacktrace::Backtrace::capture_trap(
                 ctx.r29 as usize, // fp
                 ctx.lr as usize,  // ip
                 ctx.lr as usize,  // ra
             );
-            error!("cpu_id: {}, {:?}\n{bt}",cpu_id,task.inner());
+            dump_println(
+                force,
+                format_args!("cpu_id: {}, {:?}\n{bt}", cpu_id, task.inner()),
+            );
         }
     }
 }
 
-pub fn dump_cur_task_backtrace(tf: &TrapFrame){
+#[cfg(feature = "debug-watchdog")]
+#[inline(always)]
+pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
     let bt = axbacktrace::Backtrace::capture_trap(
         tf.x[29] as usize,
         tf.x[30] as usize,
         tf.x[30] as usize,
     );
-    error!("cpu_id: {}, {:?}\n{bt}", axhal::percpu::this_cpu_id(), current().inner());
+    dump_println(
+        force,
+        format_args!(
+            "cpu_id: {}, {:?}\n{bt}",
+            cpu_id,
+            current().inner()
+        ),
+    );
 }
 
+/// Returns `true` when no suspicious long lock-waits are observed on this CPU.
+/// Returns `false` when a task appears to have been waiting on a lock for too long.
+///
+/// Note: this is a *heuristic* watchdog check, not a full deadlock detector.
+#[cfg(feature = "debug-watchdog")]
 pub fn check_mutex_deadlock(now: usize) -> bool {
-    use core::sync::atomic::Ordering;
-    for weaktask in crate::run_queue::get_global_task_queue(axhal::percpu::this_cpu_id()).lock().iter(){
+    for weaktask in crate::run_queue::get_global_task_queue(axhal::percpu::this_cpu_id()).iter(){
         if let Some(task) = weaktask.upgrade() {
-            let lock = task.bt_waiting_lock.load(Ordering::Acquire);
-            if lock == 0 {
+            let Some((_lock, since)) = task.inner().waiting_snapshot() else {
                 continue;
-            }
-
-            let since = task.bt_waiting_since.load(Ordering::Relaxed);
-            if since == 0 {
-                continue;
-            }
+            };
 
             let blocked = now.saturating_sub(since);
             if axhal::time::ticks_to_nanos(blocked as u64) > 20_000_000_000 {
+                // suspect stall (20s)
                 return false;
             }
         }

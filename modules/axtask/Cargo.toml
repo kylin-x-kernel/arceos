@@ -12,6 +12,8 @@ documentation = "https://arceos-org.github.io/arceos/axtask/index.html"
 [features]
 default = []
 
+debug-watchdog = ["dep:axbacktrace", "dep:axplat"]
+
 multitask = [
     "dep:axconfig",
     "dep:axpoll",
@@ -42,7 +44,7 @@ test = ["percpu?/sp-naive"]
 axconfig = { workspace = true, optional = true }
 axerrno.workspace = true
 axhal.workspace = true
-axbacktrace.workspace = true
+axbacktrace = { workspace = true, optional = true }
 axpoll = { workspace = true, optional = true }
 axsched = { version = "0.3", optional = true }
 cfg-if.workspace = true
@@ -60,6 +62,7 @@ lazyinit = { workspace = true, optional = true }
 log.workspace = true
 memory_addr = { workspace = true, optional = true }
 percpu = { workspace = true, optional = true }
+axplat = { workspace = true, optional = true }
 
 [dev-dependencies]
 axhal = { workspace = true, features = ["fp-simd"] }

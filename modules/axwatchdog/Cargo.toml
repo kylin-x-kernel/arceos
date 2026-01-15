@@ -14,11 +14,12 @@ default = ["axhal/nmi"]
 [dependencies]
 axconfig.workspace = true
 axhal.workspace = true
-axtask.workspace = true
+axtask = { workspace = true, features = ["debug-watchdog"] }
 cfg-if.workspace = true
 log.workspace = true
 percpu.workspace = true
 lazyinit.workspace = true
 kspin.workspace = true
 axbacktrace.workspace = true
-axsync.workspace = true
+axsync = { workspace = true, features = ["debug-watchdog"] }
+axplat.workspace = true
