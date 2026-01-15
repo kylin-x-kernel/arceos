@@ -115,24 +115,34 @@ pub fn init_softlockup_detection() {
 }
 
 pub fn init_primary() {
+    #[cfg(feature = "test-deadlock")]
     init_test1();
     init_common();
 }
 
 pub fn init_secondary() {
+    #[cfg(feature = "test-deadlock")]
     init_test2();
     init_common();
 }
 
+#[cfg(feature = "test-deadlock")]
 use kspin::SpinNoIrq;
+#[cfg(feature = "test-deadlock")]
 use log::warn;
+#[cfg(feature = "test-deadlock")]
 use axsync::Mutex;
 
+#[cfg(feature = "test-deadlock")]
 static M1: Mutex<u8> = Mutex::new(1);
+#[cfg(feature = "test-deadlock")]
 static M2: Mutex<u8> = Mutex::new(2);
+#[cfg(feature = "test-deadlock")]
 static L1: SpinNoIrq<u8> = SpinNoIrq::new(1);
+#[cfg(feature = "test-deadlock")]
 static L2: SpinNoIrq<u8> = SpinNoIrq::new(2);
 
+#[cfg(feature = "test-deadlock")]
 pub fn init_test1() {
     // Watchdog task that periodically "touches" the soft lockup timestamp.
     let watchdog_task = TaskInner::new(
@@ -166,6 +176,7 @@ pub fn init_test1() {
     axtask::spawn_task(t1);
 }
 
+#[cfg(feature = "test-deadlock")]
 pub fn init_test2() {
     // Watchdog task that periodically "touches" the soft lockup timestamp.
     let watchdog_task = TaskInner::new(
