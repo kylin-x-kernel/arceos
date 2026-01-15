@@ -318,7 +318,7 @@ pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
 /// Note: this is a *heuristic* watchdog check, not a full deadlock detector.
 #[cfg(feature = "debug-watchdog")]
 pub fn check_mutex_deadlock(now: usize) -> bool {
-    for weaktask in crate::run_queue::get_global_task_queue(axhal::percpu::this_cpu_id()).iter(){
+    for weaktask in crate::run_queue::get_global_task_queue(axhal::percpu::this_cpu_id()).iter() {
         if let Some(task) = weaktask.upgrade() {
             let Some((_lock, since)) = task.inner().waiting_snapshot() else {
                 continue;
