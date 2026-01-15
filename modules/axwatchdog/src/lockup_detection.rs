@@ -102,7 +102,6 @@ pub static LOCKUP_DETECTION: LockupDetection = LockupDetection::new();
 /// Touch softlockup timestamp (called from watchdog thread).
 #[inline]
 pub fn touch_softlockup(timestamp_ns: u64) {
-    // warn!("cpu_id: {}, timestamp: {}", cpu_id, timestamp_ns);
     unsafe {
         LOCKUP_DETECTION
             .current_ref_mut_raw()
