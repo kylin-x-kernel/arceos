@@ -75,10 +75,7 @@ fn init_common() {
         }
     });
 
-    debug!(
-        "watchdog init success on cpu {}",
-        this_cpu_id()
-    );
+    debug!("watchdog init success on cpu {}", this_cpu_id());
 }
 
 /// Initialize soft lockup detection.
