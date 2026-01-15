@@ -56,26 +56,24 @@ pub unsafe trait TaskExt {
     fn on_leave(&self) {}
 }
 
-#[cfg(feature = "debug-watchdog")]
-#[derive(Copy, Clone, Debug)]
-pub struct LockTag {
-    pub addr: usize,
-    pub kind: LockKind,     // Mutex / Spin / Rw
-}
 
-#[cfg(feature = "debug-watchdog")]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum LockKind {
-    Mutex,
-    Spin,
-    RwRead,
-    RwWrite,
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // How many held locks we track per task (debug only).
 #[cfg(feature = "debug-watchdog")]
 const HELD_LOCK_SLOTS: usize = 4;
-
 #[cfg(feature = "debug-watchdog")]
 type HeldLocks = [AtomicUsize; HELD_LOCK_SLOTS];
 
