@@ -139,11 +139,11 @@ pub fn init_test1() {
         move || {
                     axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
                     let l2 = L2.lock();
-                    warn!("cpu {} get L2 lock",axhal::percpu::this_cpu_id());
+                    warn!("cpu {} get L2 lock", axhal::percpu::this_cpu_id());
                     axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
                     let l1 = L1.lock();
-                    warn!("cpu {} get L1 lock",axhal::percpu::this_cpu_id());
-                    warn!("{:?}{:?}",l1,l2);
+                    warn!("cpu {} get L1 lock", axhal::percpu::this_cpu_id());
+                    warn!("{:?}{:?}", l1, l2);
         },
         "test1".into(),
         axconfig::TASK_STACK_SIZE,
