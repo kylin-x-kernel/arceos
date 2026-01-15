@@ -1,6 +1,7 @@
 //! Interrupt management.
 
 use core::sync::atomic::{AtomicUsize, Ordering};
+
 use axcpu::trap::{IRQ, register_trap_handler};
 
 pub use axplat::irq::{handle, register, set_enable, unregister, set_priority, local_irq_save_and_disable, local_irq_restore};
