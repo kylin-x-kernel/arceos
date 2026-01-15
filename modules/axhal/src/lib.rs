@@ -107,7 +107,7 @@ pub mod trap {
 ///
 /// - [`TaskContext`][axcpu::TaskContext]: The context of a task.
 /// - [`TrapFrame`][axcpu::TrapFrame]: The context of an interrupt or an exception.
-/// 
+///
 /// In addition, this module exposes helpers to *observe* the currently active
 /// trap context on the current CPU:
 ///
