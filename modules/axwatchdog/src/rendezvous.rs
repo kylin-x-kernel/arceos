@@ -59,6 +59,10 @@ pub fn cause_cpu() -> Option<usize> {
 #[inline]
 pub fn mark_arrived() {
     let id = this_cpu_id();
+    if id >= usize::BITS as usize {
+        // Cannot represent this CPU in the bitmap without overflowing the shift.
+        return;
+    }
     ARRIVED_BITMAP.fetch_or(1usize << id, Ordering::AcqRel);
 }
 
