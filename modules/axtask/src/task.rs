@@ -56,21 +56,6 @@ pub unsafe trait TaskExt {
     fn on_leave(&self) {}
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // How many held locks we track per task (debug only).
 #[cfg(feature = "debug-watchdog")]
 const HELD_LOCK_SLOTS: usize = 4;
