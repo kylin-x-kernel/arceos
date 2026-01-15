@@ -48,7 +48,7 @@ percpu_static! {
 #[cfg(feature = "debug-watchdog")]
 use {alloc::vec::Vec, crate::WeakAxTaskRef};
 
-/// Stores all tasks for each CPU except those in the 'exited' state.
+/// Stores all tasks for each CPU
 #[cfg(feature = "debug-watchdog")]
 static mut GLOBAL_TASK_QUEUES: [Vec<WeakAxTaskRef>; axconfig::plat::CPU_NUM] =
     [ const { Vec::new() }; axconfig::plat::CPU_NUM];

@@ -27,9 +27,6 @@ pub use crate::timers::register_timer_callback;
 #[cfg(feature = "task-ext")]
 pub use crate::task::{AxTaskExt, TaskExt};
 
-#[cfg(feature = "debug-watchdog")]
-pub use crate::task::{LockKind, LockTag};
-
 /// The reference type of a task.
 pub type AxTaskRef = Arc<AxTask>;
 
@@ -281,11 +278,17 @@ pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
     for weaktask in crate::run_queue::get_global_task_queue(cpu_id).iter() {
         if let Some(task) = weaktask.upgrade() && !task.inner().is_running() {
             let ctx = task.inner().ctx();
+            #[cfg(target_arch = "aarch64")]
             let bt = axbacktrace::Backtrace::capture_trap(
                 ctx.r29 as usize, // fp
                 ctx.lr as usize,  // ip
                 ctx.lr as usize,  // ra
             );
+
+            #[cfg(not(target_arch = "aarch64"))]
+            let bt = {
+                panic!("dump_cpu_task_backtrace: unimplemented arch {}", core::env!("CARGO_CFG_TARGET_ARCH"));
+            };
             dump_println(
                 force,
                 format_args!("cpu_id: {}, {:?}\n{bt}", cpu_id, task.inner()),
@@ -297,11 +300,17 @@ pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
 #[cfg(feature = "debug-watchdog")]
 #[inline(always)]
 pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
+    #[cfg(target_arch = "aarch64")]
     let bt = axbacktrace::Backtrace::capture_trap(
         tf.x[29] as usize,
         tf.x[30] as usize,
         tf.x[30] as usize,
     );
+
+    #[cfg(not(target_arch = "aarch64"))]
+    let bt = {
+        panic!("dump_cur_task_backtrace: unimplemented arch {}", core::env!("CARGO_CFG_TARGET_ARCH"));
+    };
     dump_println(
         force,
         format_args!(
