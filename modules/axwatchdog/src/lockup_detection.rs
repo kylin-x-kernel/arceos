@@ -61,7 +61,6 @@ impl LockupDetection {
             // Not yet initialized
             return false;
         }
-        // warn!("last: {}, now_ns: {}",last,now_ns);
         now_ns.saturating_sub(last) > threshold_ns
     }
 
