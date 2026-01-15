@@ -4,7 +4,7 @@ use log::debug;
 
 use crate::rendezvous as rv;
 
-/// Stores all tasks for each CPU except those in the 'exited' state.
+/// Stores the active trap frame for each CPU when a watchdog failure is detected.
 static mut TRAP_FRAMES: [Option<&TrapFrame>; axconfig::plat::CPU_NUM] =
     [ None; axconfig::plat::CPU_NUM];
 
