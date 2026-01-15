@@ -112,7 +112,7 @@ pub mod trap {
 /// trap context on the current CPU:
 ///
 /// - [`active_trap_frame`]: Returns a best-effort reference to the trapframe
-///   that is currently active on this CPU, if any.  
+///   that is currently active on this CPU, if any.
 ///   The returned reference is **short-lived** and only valid while the CPU
 ///   remains in the corresponding trap context. It must not be stored.
 ///
