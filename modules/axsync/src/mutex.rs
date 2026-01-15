@@ -92,7 +92,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
                                 .push_held_lock(self as *const _ as usize);
                         }
                         break;
-                    },
+                    }
                     Err(x) => owner_id = x,
                 }
                 continue;
