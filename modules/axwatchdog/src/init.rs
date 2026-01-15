@@ -115,85 +115,9 @@ pub fn init_softlockup_detection() {
 }
 
 pub fn init_primary() {
-    init_test1();
     init_common();
 }
 
 pub fn init_secondary() {
-    init_test2();
     init_common();
-}
-
-use kspin::SpinNoIrq;
-use log::warn;
-use axsync::Mutex;
-
-static M1: Mutex<u8> = Mutex::new(1);
-static M2: Mutex<u8> = Mutex::new(2);
-static L1: SpinNoIrq<u8> = SpinNoIrq::new(1);
-static L2: SpinNoIrq<u8> = SpinNoIrq::new(2);
-
-pub fn init_test1() {
-    // Watchdog task that periodically "touches" the soft lockup timestamp.
-    let watchdog_task = TaskInner::new(
-        move || {
-                    axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
-                    let l2 = L2.lock();
-                    warn!("cpu {} get L2 lock", axhal::percpu::this_cpu_id());
-                    axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
-                    let l1 = L1.lock();
-                    warn!("cpu {} get L1 lock", axhal::percpu::this_cpu_id());
-                    warn!("{:?}{:?}", l1, l2);
-        },
-        "test1".into(),
-        axconfig::TASK_STACK_SIZE,
-    );
-    // Bind watchdog task to the local CPU.
-    watchdog_task.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
-    axtask::spawn_task(watchdog_task);
-
-    let t1 = TaskInner::new(
-        move || {
-            let _m2 = M2.lock();
-            axhal::time::busy_wait(axhal::time::Duration::from_secs(1));
-            let _m1 = M1.lock();
-        },
-        "test_mutex_12".into(),
-        axconfig::TASK_STACK_SIZE,
-    );
-
-    t1.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
-    axtask::spawn_task(t1);
-}
-
-pub fn init_test2() {
-    // Watchdog task that periodically "touches" the soft lockup timestamp.
-    let watchdog_task = TaskInner::new(
-        move || {
-            axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
-            let l1 = L1.lock();
-            warn!("cpu {} get L1 lock", this_cpu_id());
-            axhal::time::busy_wait(axhal::time::Duration::from_secs(30));
-            let l2 = L2.lock();
-            warn!("cpu {} get L2 lock", this_cpu_id());
-            warn!("{:?}{:?}", l1, l2);
-        },
-        "test2".into(),
-        axconfig::TASK_STACK_SIZE,
-    );
-    watchdog_task.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
-    axtask::spawn_task(watchdog_task);
-
-    let t2 = TaskInner::new(
-        move || {
-            let _m1 = M1.lock();
-            axhal::time::busy_wait(axhal::time::Duration::from_secs(1));
-            let _m2 = M2.lock();
-        },
-        "test_mutex_12".into(),
-        axconfig::TASK_STACK_SIZE,
-    );
-
-    t2.set_cpumask(AxCpuMask::one_shot(axhal::percpu::this_cpu_id()));
-    axtask::spawn_task(t2);
 }
