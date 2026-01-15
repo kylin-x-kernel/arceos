@@ -142,8 +142,4 @@ impl WatchdogTask for LockupDetection {
     fn check(&self) -> bool {
         !self.check_hardlockup()
     }
-
-    fn on_failure(&self) {
-        
-    }
 }

@@ -12,6 +12,7 @@ documentation = "https://arceos-org.github.io/arceos/axsync/index.html"
 [features]
 multitask = ["axtask/multitask"]
 default = []
+debug-watchdog = []
 
 [dependencies]
 axtask.workspace = true

@@ -13,9 +13,9 @@ pub trait WatchdogTask {
     /// Return `true` if healthy, `false` to trigger recovery actions.
     fn check(&self) -> bool;
 
-    /// Called when `check()` returns false.
-    /// Default: do nothing.
-    fn on_failure(&self);
+    // Called when `check()` returns false.
+    // Default: do nothing.
+    // fn on_failure(&self);
 }
 
 /// Register a watchdog task for the current CPU.
@@ -33,7 +33,6 @@ pub(crate) fn check_watchdog_tasks() -> Option<&'static str> {
         let queue = WATCHDOG_TASK_QUEUE.current_ref_mut_raw();
         for task in queue.iter() {
             if !task.check() {
-                task.on_failure();
                 return Some(task.name());
             }
         }
@@ -52,9 +51,5 @@ impl WatchdogTask for MutexDeadlockCheck {
 
     fn check(&self) -> bool {
         axtask::check_mutex_deadlock(axhal::time::current_ticks() as usize)
-    }
-
-    fn on_failure(&self) {
-
     }
 }

@@ -56,12 +56,14 @@ pub unsafe trait TaskExt {
     fn on_leave(&self) {}
 }
 
+#[cfg(feature = "debug-watchdog")]
 #[derive(Copy, Clone, Debug)]
 pub struct LockTag {
-    pub addr: usize,        // 锁地址
+    pub addr: usize,
     pub kind: LockKind,     // Mutex / Spin / Rw
 }
 
+#[cfg(feature = "debug-watchdog")]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum LockKind {
     Mutex,
@@ -69,6 +71,13 @@ pub enum LockKind {
     RwRead,
     RwWrite,
 }
+
+// How many held locks we track per task (debug only).
+#[cfg(feature = "debug-watchdog")]
+const HELD_LOCK_SLOTS: usize = 4;
+
+#[cfg(feature = "debug-watchdog")]
+type HeldLocks = [AtomicUsize; HELD_LOCK_SLOTS];
 
 /// The inner task structure.
 pub struct TaskInner {
@@ -109,11 +118,18 @@ pub struct TaskInner {
     #[cfg(feature = "tls")]
     tls: TlsArea,
 
-    pub bt_waiting_lock: AtomicUsize, // 0 = none, else lock addr
+    /// Debug watchdog: which lock this task is waiting for.
+    ///
+    /// 0 = not waiting, otherwise lock address.
+    #[cfg(feature = "debug-watchdog")]
+    waiting_lock: AtomicUsize,
 
-    pub bt_held_locks: SpinNoIrq<[Option<LockTag>; 4]>,
+    /// Debug watchdog: tick timestamp when we started waiting on `bt_waiting_lock`.
+    #[cfg(feature = "debug-watchdog")]
+    waiting_since: AtomicUsize,
 
-    pub bt_waiting_since: AtomicUsize,
+    #[cfg(feature = "debug-watchdog")]
+    held_locks: HeldLocks,
 }
 
 impl TaskId {
@@ -284,37 +300,90 @@ impl TaskInner {
         self.interrupt_waker.wake();
     }
 
+    #[cfg(feature = "debug-watchdog")]
     #[inline(always)]
-    pub fn bt_set_waiting_lock(&self, lock: usize, now: usize) {
-        self.bt_waiting_since.store(now, Ordering::Relaxed);
-        self.bt_waiting_lock.store(lock, Ordering::Release);
+    pub fn set_waiting_lock(&self, lock: usize, now: usize) {
+        // Publish `since` first, then `lock` with Release so readers that see
+        // a non-zero lock also see the matching `since`.
+        self.waiting_since.store(now, Ordering::Relaxed);
+        self.waiting_lock.store(lock, Ordering::Release);
     }
 
+    #[cfg(feature = "debug-watchdog")]
     #[inline(always)]
-    pub fn bt_clear_waiting_lock(&self) {
-        self.bt_waiting_lock.store(0, Ordering::Release);
-        self.bt_waiting_since.store(0, Ordering::Relaxed);
+    pub fn clear_waiting_lock(&self) {
+        // Clear `lock` first (Release) so readers won't observe a stale lock
+        // paired with a reset `since`.
+        self.waiting_lock.store(0, Ordering::Release);
+        self.waiting_since.store(0, Ordering::Relaxed);
     }
 
-    pub fn bt_push_held_lock(&self, lock: LockTag) {
-        let mut slots = self.bt_held_locks.lock();
-        for slot in slots.iter_mut() {
-            if slot.is_none() {
-                *slot = Some(lock);
+    /// A lock-free snapshot of the lock-wait state, safe for NMI/watchdog paths.
+    #[cfg(feature = "debug-watchdog")]
+    #[inline(always)]
+    pub fn waiting_snapshot(&self) -> Option<(usize, usize)> {
+        let lock = self.waiting_lock.load(Ordering::Acquire);
+        if lock == 0 {
+            return None;
+        }
+        // Since lock is observed with Acquire and stored with Release, this
+        // relaxed load is ordered after the lock read and should see the
+        // corresponding `since` in practice.
+        let since = self.waiting_since.load(Ordering::Relaxed);
+        if since == 0 {
+            None
+        } else {
+            Some((lock, since))
+        }
+    }
+
+    /// Getter: current waiting lock address (0 means none).
+    #[cfg(feature = "debug-watchdog")]
+    #[inline(always)]
+    pub fn waiting_lock(&self) -> usize {
+        self.waiting_lock.load(Ordering::Acquire)
+    }
+
+    /// Getter: tick when waiting started (0 means none).
+    #[cfg(feature = "debug-watchdog")]
+    #[inline(always)]
+    pub fn waiting_since(&self) -> usize {
+        self.waiting_since.load(Ordering::Relaxed)
+    }
+
+    /// Record that this task now holds `addr`.
+    #[cfg(feature = "debug-watchdog")]
+    pub fn push_held_lock(&self, addr: usize) {
+        // Find a free slot.
+        for slot in &self.held_locks {
+            if slot
+                .compare_exchange(0, addr, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
                 return;
             }
         }
-        // overflow: silently drop (debug only)
     }
 
-    pub fn bt_pop_held_lock(&self, addr: usize) {
-        let mut slots = self.bt_held_locks.lock();
-        for slot in slots.iter_mut() {
-            if slot.map(|l| l.addr) == Some(addr) {
-                *slot = None;
+    /// Record that this task released `addr`.
+    #[cfg(feature = "debug-watchdog")]
+    pub fn pop_held_lock(&self, addr: usize) {
+        for slot in &self.held_locks {
+            if slot.load(Ordering::Acquire) == addr {
+                slot.store(0, Ordering::Release);
                 return;
             }
         }
+    }
+
+    /// Lock-free snapshot of held locks (0 entries are filtered out).
+    #[cfg(feature = "debug-watchdog")]
+    pub fn held_locks_snapshot(&self) -> [usize; HELD_LOCK_SLOTS] {
+        let mut out = [0usize; HELD_LOCK_SLOTS];
+        for (i, slot) in self.held_locks.iter().enumerate() {
+            out[i] = slot.load(Ordering::Acquire);
+        }
+        out
     }
 }
 
@@ -352,9 +421,12 @@ impl TaskInner {
             task_ext: None,
             #[cfg(feature = "tls")]
             tls: TlsArea::alloc(),
-            bt_waiting_lock: AtomicUsize::new(0),
-            bt_held_locks: SpinNoIrq::new([None, None, None, None]),
-            bt_waiting_since: AtomicUsize::new(0),
+            #[cfg(feature = "debug-watchdog")]
+            waiting_lock: AtomicUsize::new(0),
+            #[cfg(feature = "debug-watchdog")]
+            waiting_since: AtomicUsize::new(0),
+            #[cfg(feature = "debug-watchdog")]
+            held_locks: [const { AtomicUsize::new(0) }; HELD_LOCK_SLOTS],
         }
     }
 
@@ -509,22 +581,20 @@ impl TaskInner {
 
 impl fmt::Debug for TaskInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let waiting = self.bt_waiting_lock.load(Ordering::Relaxed);
-        let locks = self.bt_held_locks.lock();
-
-        let waiting_opt = if waiting == 0 {
-            None
-        } else {
-            Some(waiting)
-        };
-
-        f.debug_struct("TaskInner")
-            .field("id", &self.id)
+        let mut ds = f.debug_struct("TaskInner");
+        ds.field("id", &self.id)
             .field("name", &self.name)
-            .field("state", &self.state())
-            .field("waiting_lock", &waiting_opt)
-            .field("held_locks", &*locks)
-            .finish()
+            .field("state", &self.state());
+
+        #[cfg(feature = "debug-watchdog")]
+        {
+            let waiting = self.waiting_lock();
+            let held = self.held_locks_snapshot();
+            ds.field("waiting_lock", &waiting)
+                .field("held_locks", &held);
+        }
+
+        ds.finish_non_exhaustive()
     }
 }
 
