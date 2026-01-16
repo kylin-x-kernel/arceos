@@ -121,7 +121,8 @@ unsafe impl lock_api::RawMutex for RawMutex {
     #[inline(always)]
     fn try_lock(&self) -> bool {
         let current_id = current().id().as_u64();
-
+        // The reason for using a strong compare_exchange is explained here:
+        // https://github.com/Amanieu/parking_lot/pull/207#issuecomment-575869107
         if self.owner_id
             .compare_exchange(0, current_id, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
