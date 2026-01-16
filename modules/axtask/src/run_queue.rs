@@ -45,21 +45,6 @@ percpu_static! {
     PREV_TASK: Weak<crate::AxTask> = Weak::new(),
 }
 
-#[cfg(feature = "debug-watchdog")]
-use {alloc::vec::Vec, crate::WeakAxTaskRef};
-
-/// Stores all tasks for each CPU
-#[cfg(feature = "debug-watchdog")]
-static mut GLOBAL_TASK_QUEUES: [Vec<WeakAxTaskRef>; axconfig::plat::CPU_NUM] =
-    [ const { Vec::new() }; axconfig::plat::CPU_NUM];
-
-/// Returns a mutable reference to the global task queue of the given CPU.
-#[inline]
-#[cfg(feature = "debug-watchdog")]
-pub(crate) fn get_global_task_queue(cpu_id: usize) -> &'static mut Vec<WeakAxTaskRef> {
-    unsafe { &mut GLOBAL_TASK_QUEUES[cpu_id] }
-}
-
 /// An array of references to run queues, one for each CPU, indexed by cpu_id.
 ///
 /// This static variable holds references to the run queues for each CPU in the system.
@@ -258,9 +243,10 @@ impl<G: BaseGuard> AxRunQueueRef<'_, G> {
             self.inner.cpu_id
         );
         assert!(task.is_ready());
-        #[cfg(feature = "debug-watchdog")]{
+        #[cfg(feature = "debug-watchdog")]
+        {
             let _g = kernel_guard::NoPreempt::new();
-            get_global_task_queue(this_cpu_id()).push(Arc::downgrade(&task));
+            crate::global_task_queue::record_task_for_watchdog(&task);
         }
         self.inner.scheduler.lock().add_task(task);
     }
@@ -619,11 +605,10 @@ fn poll_gc(cx: &mut Context<'_>) -> Poll<()> {
             }
         }
 
-        // Safety: the global task queue is a `static mut` and is expected to be
-        // logically owned by its CPU. The GC task is pinned to this CPU.
-        #[cfg(feature = "debug-watchdog")]{
+        #[cfg(feature = "debug-watchdog")]
+        {
             let _g = kernel_guard::NoPreempt::new();
-            get_global_task_queue(this_cpu_id()).retain(|weak_task| weak_task.upgrade().is_some());
+            crate::global_task_queue::sweep_watchdog_tasks(this_cpu_id());
         }
 
         // Note: we cannot block current task with preemption disabled,

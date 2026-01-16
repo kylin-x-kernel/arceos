@@ -275,7 +275,7 @@ fn dump_println(force: bool, args: core::fmt::Arguments<'_>) {
 
 #[cfg(feature = "debug-watchdog")]
 pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
-    for weaktask in crate::run_queue::get_global_task_queue(cpu_id).iter() {
+    crate::global_task_queue::for_each_watchdog_task(cpu_id, |weaktask| {
         if let Some(task) = weaktask.upgrade() && !task.inner().is_running() {
             let ctx = task.inner().ctx();
             #[cfg(target_arch = "aarch64")]
@@ -294,7 +294,7 @@ pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
                 format_args!("cpu_id: {}, {:?}\n{bt}", cpu_id, task.inner()),
             );
         }
-    }
+    });
 }
 
 #[cfg(feature = "debug-watchdog")]
@@ -327,18 +327,23 @@ pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
 /// Note: this is a *heuristic* watchdog check, not a full deadlock detector.
 #[cfg(feature = "debug-watchdog")]
 pub fn check_mutex_deadlock(now: usize) -> bool {
-    for weaktask in crate::run_queue::get_global_task_queue(axhal::percpu::this_cpu_id()).iter() {
+    let mut ok = true;
+    crate::global_task_queue::for_each_watchdog_task(axhal::percpu::this_cpu_id(), |weaktask| {
+        if !ok {
+            return;
+        }
         if let Some(task) = weaktask.upgrade() {
             let Some((_lock, since)) = task.inner().waiting_snapshot() else {
-                continue;
+                return;
             };
 
             let blocked = now.saturating_sub(since);
             if axhal::time::ticks_to_nanos(blocked as u64) > 20_000_000_000 {
                 // suspect stall (20s)
-                return false;
+                ok = false;
+                return;
             }
         }
-    }
-    true
+    });
+    ok
 }
