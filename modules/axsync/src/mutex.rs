@@ -85,7 +85,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
                     Ordering::Relaxed,
                 ) {
                     Ok(_) => {
-                        #[cfg(feature = "debug-watchdog")]{
+                        #[cfg(feature = "watchdog")]{
                             current().inner().clear_waiting_lock();
                             current()
                                 .inner()
@@ -109,7 +109,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
             if owner_id == 0 {
                 continue;
             }
-            #[cfg(feature = "debug-watchdog")]
+            #[cfg(feature = "watchdog")]
             current()
                 .inner()
                 .set_waiting_lock(self as *const _ as usize, axhal::time::current_ticks() as usize);
@@ -127,7 +127,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
             .compare_exchange(0, current_id, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
-            #[cfg(feature = "debug-watchdog")]
+            #[cfg(feature = "watchdog")]
             current()
                 .inner()
                 .push_held_lock(self as *const _ as usize);
@@ -145,7 +145,7 @@ unsafe impl lock_api::RawMutex for RawMutex {
             "{} tried to release mutex it doesn't own",
             current().id_name()
         );
-        #[cfg(feature = "debug-watchdog")]
+        #[cfg(feature = "watchdog")]
         current().inner().pop_held_lock(self as *const _ as usize);
         self.event.notify(1);
     }

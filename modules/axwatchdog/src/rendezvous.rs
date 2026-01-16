@@ -3,15 +3,30 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use axhal::percpu::this_cpu_id;
 
 /// Rendezvous phases.
-///
-/// - 0: idle
-/// - 1: triggered, all CPUs must enter NMI and mark arrived
-/// - 2: dump done (all non-cause CPUs can stop spinning if desired)
-const PHASE_IDLE: usize = 0;
-const PHASE_TRIGGERED: usize = 1;
-const PHASE_DUMP_DONE: usize = 2;
+#[repr(usize)]
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum Phase {
+    /// No rendezvous in progress.
+    Idle      = 0,
+    /// Triggered: all CPUs must enter NMI and mark arrived.
+    Triggered = 1,
+    /// Dump done: non-cause CPUs can stop spinning if desired.
+    DumpDone  = 2,
+}
 
-static PHASE: AtomicUsize = AtomicUsize::new(PHASE_IDLE);
+impl Phase {
+    #[inline]
+    fn load() -> Self {
+        match PHASE.load(Ordering::Acquire) {
+            0 => Phase::Idle,
+            1 => Phase::Triggered,
+            2 => Phase::DumpDone,
+            _ => Phase::Idle,
+        }
+    }
+}
+
+static PHASE: AtomicUsize = AtomicUsize::new(Phase::Idle as usize);
 
 /// The CPU id which detected the failure and triggered the rendezvous.
 static CAUSE_CPU: AtomicUsize = AtomicUsize::new(usize::MAX);
@@ -21,34 +36,36 @@ static ARRIVED_BITMAP: AtomicUsize = AtomicUsize::new(0);
 
 #[inline]
 pub fn is_triggered() -> bool {
-    PHASE.load(Ordering::Acquire) == PHASE_TRIGGERED
+    Phase::load() == Phase::Triggered
 }
 
 #[inline]
 pub fn is_dump_done() -> bool {
-    PHASE.load(Ordering::Acquire) == PHASE_DUMP_DONE
+    Phase::load() == Phase::DumpDone
 }
 
 /// Try to trigger rendezvous.
 ///
 /// Returns `true` if this CPU became the *cause CPU*.
 #[inline]
-pub fn try_trigger() -> bool {
+pub fn try_trigger() {
     let cpu = this_cpu_id();
     if PHASE
-        .compare_exchange(PHASE_IDLE, PHASE_TRIGGERED, Ordering::AcqRel, Ordering::Relaxed)
+        .compare_exchange(
+            Phase::Idle as usize,
+            Phase::Triggered as usize,
+            Ordering::AcqRel,
+            Ordering::Relaxed,
+        )
         .is_ok()
     {
         CAUSE_CPU.store(cpu, Ordering::Release);
-        true
-    } else {
-        false
     }
 }
 
 #[inline]
 pub fn cause_cpu() -> Option<usize> {
-    if PHASE.load(Ordering::Acquire) == PHASE_IDLE {
+    if Phase::load() == Phase::Idle {
         return None;
     }
     let cpu = CAUSE_CPU.load(Ordering::Acquire);
@@ -95,7 +112,7 @@ pub fn wait_all_arrived_strong() {
 /// Mark dump done so other CPUs can release from spinning.
 #[inline]
 pub fn mark_dump_done() {
-    PHASE.store(PHASE_DUMP_DONE, Ordering::Release);
+    PHASE.store(Phase::DumpDone as usize, Ordering::Release);
 }
 
 /// Reset rendezvous state.
@@ -107,5 +124,5 @@ pub fn mark_dump_done() {
 pub fn reset() {
     ARRIVED_BITMAP.store(0, Ordering::Release);
     CAUSE_CPU.store(usize::MAX, Ordering::Release);
-    PHASE.store(PHASE_IDLE, Ordering::Release);
+    PHASE.store(Phase::Idle as usize, Ordering::Release);
 }

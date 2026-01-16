@@ -12,14 +12,14 @@ documentation = "https://arceos-org.github.io/arceos/axsync/index.html"
 [features]
 multitask = ["axtask/multitask"]
 default = []
-debug-watchdog = []
+watchdog = ["dep:axhal"]
 
 [dependencies]
 axtask.workspace = true
 event-listener.workspace = true
 kspin.workspace = true
 lock_api.workspace = true
-axhal.workspace = true
+axhal = { workspace = true, optional = true}
 
 [dev-dependencies]
 axsync = { workspace = true, features = ["multitask"] }

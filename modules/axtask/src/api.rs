@@ -1,31 +1,27 @@
 //! Task APIs for multi-task configuration.
 
-use core::sync::atomic::AtomicUsize;
-
 use alloc::{
     string::String,
     sync::{Arc, Weak},
 };
+use core::sync::atomic::AtomicUsize;
 
-#[cfg(feature = "debug-watchdog")]
+#[cfg(feature = "watchdog")]
 use axhal::context::TrapFrame;
 use kernel_guard::NoPreemptIrqSave;
 
 pub(crate) use crate::run_queue::{current_run_queue, select_run_queue};
-
+#[doc(cfg(all(feature = "multitask", feature = "task-ext")))]
+#[cfg(feature = "task-ext")]
+pub use crate::task::{AxTaskExt, TaskExt};
+#[doc(cfg(all(feature = "multitask", feature = "irq")))]
+#[cfg(feature = "irq")]
+pub use crate::timers::register_timer_callback;
 #[doc(cfg(feature = "multitask"))]
 pub use crate::{
     task::{CurrentTask, TaskId, TaskInner, TaskState},
     wait_queue::WaitQueue,
 };
-
-#[doc(cfg(all(feature = "multitask", feature = "irq")))]
-#[cfg(feature = "irq")]
-pub use crate::timers::register_timer_callback;
-
-#[doc(cfg(all(feature = "multitask", feature = "task-ext")))]
-#[cfg(feature = "task-ext")]
-pub use crate::task::{AxTaskExt, TaskExt};
 
 /// The reference type of a task.
 pub type AxTaskRef = Arc<AxTask>;
@@ -77,7 +73,7 @@ impl kernel_guard::KernelGuardIf for KernelGuardIfImpl {
 
     fn local_irq_restore(flags: usize) {
         axhal::irq::local_irq_restore(flags);
-    }   
+    }
 }
 
 /// Gets the current task, or returns [`None`] if the current task is not
@@ -262,7 +258,7 @@ pub fn run_idle() -> ! {
     }
 }
 
-#[cfg(feature = "debug-watchdog")]
+#[cfg(feature = "watchdog")]
 #[inline(always)]
 fn dump_println(force: bool, args: core::fmt::Arguments<'_>) {
     if force {
@@ -273,10 +269,12 @@ fn dump_println(force: bool, args: core::fmt::Arguments<'_>) {
     }
 }
 
-#[cfg(feature = "debug-watchdog")]
+#[cfg(feature = "watchdog")]
 pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
     crate::global_task_queue::for_each_watchdog_task(cpu_id, |weaktask| {
-        if let Some(task) = weaktask.upgrade() && !task.inner().is_running() {
+        if let Some(task) = weaktask.upgrade()
+            && !task.inner().is_running()
+        {
             let ctx = task.inner().ctx();
             #[cfg(target_arch = "aarch64")]
             let bt = axbacktrace::Backtrace::capture_trap(
@@ -287,7 +285,10 @@ pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
 
             #[cfg(not(target_arch = "aarch64"))]
             let bt = {
-                panic!("dump_cpu_task_backtrace: unimplemented arch {}", core::env!("CARGO_CFG_TARGET_ARCH"));
+                panic!(
+                    "dump_cpu_task_backtrace: unimplemented arch {}",
+                    core::env!("CARGO_CFG_TARGET_ARCH")
+                );
             };
             dump_println(
                 force,
@@ -297,7 +298,7 @@ pub fn dump_cpu_task_backtrace(cpu_id: usize, force: bool) {
     });
 }
 
-#[cfg(feature = "debug-watchdog")]
+#[cfg(feature = "watchdog")]
 #[inline(always)]
 pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
     #[cfg(target_arch = "aarch64")]
@@ -309,15 +310,14 @@ pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
 
     #[cfg(not(target_arch = "aarch64"))]
     let bt = {
-        panic!("dump_cur_task_backtrace: unimplemented arch {}", core::env!("CARGO_CFG_TARGET_ARCH"));
+        panic!(
+            "dump_cur_task_backtrace: unimplemented arch {}",
+            core::env!("CARGO_CFG_TARGET_ARCH")
+        );
     };
     dump_println(
         force,
-        format_args!(
-            "cpu_id: {}, {:?}\n{bt}",
-            cpu_id,
-            current().inner()
-        ),
+        format_args!("cpu_id: {}, {:?}\n{bt}", cpu_id, current().inner()),
     );
 }
 
@@ -325,7 +325,7 @@ pub fn dump_cur_task_backtrace(cpu_id: usize, tf: &TrapFrame, force: bool) {
 /// Returns `false` when a task appears to have been waiting on a lock for too long.
 ///
 /// Note: this is a *heuristic* watchdog check, not a full deadlock detector.
-#[cfg(feature = "debug-watchdog")]
+#[cfg(feature = "watchdog")]
 pub fn check_mutex_deadlock(now: usize) -> bool {
     let mut ok = true;
     crate::global_task_queue::for_each_watchdog_task(axhal::percpu::this_cpu_id(), |weaktask| {

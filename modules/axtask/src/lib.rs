@@ -43,7 +43,7 @@ cfg_if::cfg_if! {
         mod task;
         mod api;
         mod wait_queue;
-        #[cfg(feature = "debug-watchdog")]
+        #[cfg(feature = "watchdog")]
         mod global_task_queue;
         #[cfg(feature = "irq")]
         mod timers;

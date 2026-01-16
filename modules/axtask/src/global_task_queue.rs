@@ -1,7 +1,9 @@
-use crate::WeakAxTaskRef;
-use core::sync::atomic::{AtomicUsize, Ordering};
 use alloc::{boxed::Box, sync::Arc};
+use core::sync::atomic::{AtomicUsize, Ordering};
+
 use axhal::percpu::this_cpu_id;
+
+use crate::WeakAxTaskRef;
 
 /// Max number of task weak refs tracked per CPU for watchdog/NMI dumping.
 ///
@@ -25,7 +27,7 @@ impl GlobalTaskRegistry {
     const fn new() -> Self {
         const ZERO: AtomicUsize = AtomicUsize::new(0);
         Self {
-            slots: [ const { [ZERO; GLOBAL_TASK_QUEUE_SLOTS] }; axconfig::plat::CPU_NUM],
+            slots: [const { [ZERO; GLOBAL_TASK_QUEUE_SLOTS] }; axconfig::plat::CPU_NUM],
         }
     }
 
@@ -43,6 +45,8 @@ impl GlobalTaskRegistry {
                 return;
             }
         }
+
+        warn!("global task queue on cpu {} is full!", cpu_id);
 
         // registry full, drop record
         unsafe { drop(Box::from_raw(ptr as *mut WeakAxTaskRef)) };

@@ -6,7 +6,7 @@ use crate::rendezvous as rv;
 
 /// Stores the active trap frame for each CPU when a watchdog failure is detected.
 static mut TRAP_FRAMES: [Option<&TrapFrame>; axconfig::plat::CPU_NUM] =
-    [ None; axconfig::plat::CPU_NUM];
+    [None; axconfig::plat::CPU_NUM];
 
 /// Common watchdog initialization for both primary and secondary CPUs.
 ///
@@ -39,7 +39,9 @@ fn init_common() {
         // Once any CPU triggered, ALL CPUs must rendezvous here.
         if rv::is_triggered() {
             rv::mark_arrived();
-            unsafe { TRAP_FRAMES[this_cpu_id()] = axhal::context::active_trap_frame(); }
+            unsafe {
+                TRAP_FRAMES[this_cpu_id()] = axhal::context::active_trap_frame();
+            }
             let this_cpu = this_cpu_id();
             let is_cause = rv::cause_cpu() == Some(this_cpu);
             if is_cause {
