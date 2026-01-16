@@ -33,12 +33,12 @@ pub enum TaskState {
     /// Task is running on some CPU.
     Running = 1,
     /// Task is ready to run on some scheduler's ready queue.
-    Ready = 2,
+    Ready   = 2,
     /// Task is blocked (in the wait queue or timer list),
     /// and it has finished its scheduling process, it can be wake up by `notify()` on any run queue safely.
     Blocked = 3,
     /// Task is exited and waiting for being dropped.
-    Exited = 4,
+    Exited  = 4,
 }
 
 /// User-defined task extended data.
@@ -54,6 +54,33 @@ pub unsafe trait TaskExt {
     fn on_enter(&self) {}
     /// Called when the task is switched out.
     fn on_leave(&self) {}
+}
+
+// How many held locks we track per task (debug only).
+#[cfg(feature = "watchdog")]
+const HELD_LOCK_SLOTS: usize = 4;
+#[cfg(feature = "watchdog")]
+type HeldLocks = [AtomicUsize; HELD_LOCK_SLOTS];
+
+#[cfg(feature = "watchdog")]
+struct PerTaskRecording {
+    /// 0 = not waiting, otherwise lock address.
+    waiting_lock: AtomicUsize,
+    /// Tick timestamp when we started waiting on `waiting_lock`.
+    waiting_since: AtomicUsize,
+    held_locks: HeldLocks,
+}
+
+#[cfg(feature = "watchdog")]
+impl PerTaskRecording {
+    const fn new() -> Self {
+        const ZERO: AtomicUsize = AtomicUsize::new(0);
+        Self {
+            waiting_lock: ZERO,
+            waiting_since: ZERO,
+            held_locks: [ZERO; HELD_LOCK_SLOTS],
+        }
+    }
 }
 
 /// The inner task structure.
@@ -94,6 +121,10 @@ pub struct TaskInner {
 
     #[cfg(feature = "tls")]
     tls: TlsArea,
+
+    /// Per-task watchdog recording (lock-free/NMI-safe).
+    #[cfg(feature = "watchdog")]
+    record_lock: PerTaskRecording,
 }
 
 impl TaskId {
@@ -200,6 +231,12 @@ impl TaskInner {
         self.ctx.get_mut()
     }
 
+    /// Returns a shared reference to the task context.
+    #[inline]
+    pub fn ctx(&self) -> &TaskContext {
+        unsafe { &*self.ctx.get() }
+    }
+
     /// Returns the top address of the kernel stack.
     #[inline]
     pub const fn kernel_stack_top(&self) -> Option<VirtAddr> {
@@ -257,6 +294,93 @@ impl TaskInner {
         self.interrupted.store(true, Ordering::Release);
         self.interrupt_waker.wake();
     }
+
+    #[cfg(feature = "watchdog")]
+    #[inline(always)]
+    pub fn set_waiting_lock(&self, lock: usize, now: usize) {
+        // Publish `since` first, then `lock` with Release so readers that see
+        // a non-zero lock also see the matching `since`.
+        self.record_lock.waiting_since.store(now, Ordering::Relaxed);
+        self.record_lock.waiting_lock.store(lock, Ordering::Release);
+    }
+
+    #[cfg(feature = "watchdog")]
+    #[inline(always)]
+    pub fn clear_waiting_lock(&self) {
+        // Clear `lock` first (Release) so readers won't observe a stale lock
+        // paired with a reset `since`.
+        self.record_lock.waiting_lock.store(0, Ordering::Release);
+        self.record_lock.waiting_since.store(0, Ordering::Relaxed);
+    }
+
+    /// A lock-free snapshot of the lock-wait state, safe for NMI/watchdog paths.
+    #[cfg(feature = "watchdog")]
+    #[inline(always)]
+    pub fn waiting_snapshot(&self) -> Option<(usize, usize)> {
+        let lock = self.record_lock.waiting_lock.load(Ordering::Acquire);
+        if lock == 0 {
+            return None;
+        }
+        // Since lock is observed with Acquire and stored with Release, this
+        // relaxed load is ordered after the lock read and should see the
+        // corresponding `since` in practice.
+        let since = self.record_lock.waiting_since.load(Ordering::Relaxed);
+        if since == 0 {
+            None
+        } else {
+            Some((lock, since))
+        }
+    }
+
+    /// Getter: current waiting lock address (0 means none).
+    #[cfg(feature = "watchdog")]
+    #[inline(always)]
+    pub fn waiting_lock(&self) -> usize {
+        self.record_lock.waiting_lock.load(Ordering::Acquire)
+    }
+
+    /// Getter: tick when waiting started (0 means none).
+    #[cfg(feature = "watchdog")]
+    #[inline(always)]
+    pub fn waiting_since(&self) -> usize {
+        self.record_lock.waiting_since.load(Ordering::Relaxed)
+    }
+
+    /// Record that this task now holds `addr`.
+    #[cfg(feature = "watchdog")]
+    pub fn push_held_lock(&self, addr: usize) {
+        // Find a free slot.
+        for slot in &self.record_lock.held_locks {
+            if slot
+                .compare_exchange(0, addr, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                return;
+            }
+        }
+        warn!("held locks on task {:?} are full!", self.id);
+    }
+
+    /// Record that this task released `addr`.
+    #[cfg(feature = "watchdog")]
+    pub fn pop_held_lock(&self, addr: usize) {
+        for slot in &self.record_lock.held_locks {
+            if slot.load(Ordering::Acquire) == addr {
+                slot.store(0, Ordering::Release);
+                return;
+            }
+        }
+    }
+
+    /// Lock-free snapshot of held locks (0 entries are filtered out).
+    #[cfg(feature = "watchdog")]
+    pub fn held_locks_snapshot(&self) -> [usize; HELD_LOCK_SLOTS] {
+        let mut out = [0usize; HELD_LOCK_SLOTS];
+        for (i, slot) in self.record_lock.held_locks.iter().enumerate() {
+            out[i] = slot.load(Ordering::Acquire);
+        }
+        out
+    }
 }
 
 // private methods
@@ -293,6 +417,8 @@ impl TaskInner {
             task_ext: None,
             #[cfg(feature = "tls")]
             tls: TlsArea::alloc(),
+            #[cfg(feature = "watchdog")]
+            record_lock: PerTaskRecording::new(),
         }
     }
 
@@ -447,11 +573,20 @@ impl TaskInner {
 
 impl fmt::Debug for TaskInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("TaskInner")
-            .field("id", &self.id)
+        let mut ds = f.debug_struct("TaskInner");
+        ds.field("id", &self.id)
             .field("name", &self.name)
-            .field("state", &self.state())
-            .finish()
+            .field("state", &self.state());
+
+        #[cfg(feature = "watchdog")]
+        {
+            let waiting = self.waiting_lock();
+            let held = self.held_locks_snapshot();
+            ds.field("waiting_lock", &waiting)
+                .field("held_locks", &held);
+        }
+
+        ds.finish_non_exhaustive()
     }
 }
 

@@ -1,20 +1,18 @@
+#[cfg(feature = "smp")]
+use alloc::sync::Weak;
 use alloc::{collections::VecDeque, sync::Arc};
 use core::{
     future::poll_fn,
     mem::MaybeUninit,
     task::{Context, Poll},
 };
-use futures_util::task::AtomicWaker;
-
-#[cfg(feature = "smp")]
-use alloc::sync::Weak;
-
-use axsched::BaseScheduler;
-use kernel_guard::BaseGuard;
-use kspin::{SpinRaw, SpinNoIrqGuard};
-use lazyinit::LazyInit;
 
 use axhal::percpu::this_cpu_id;
+use axsched::BaseScheduler;
+use futures_util::task::AtomicWaker;
+use kernel_guard::BaseGuard;
+use kspin::{SpinNoIrqGuard, SpinRaw};
+use lazyinit::LazyInit;
 
 use crate::{
     AxCpuMask, AxTaskRef, Scheduler, TaskInner,
@@ -98,7 +96,6 @@ pub(crate) fn current_run_queue<G: BaseGuard>() -> CurrentRunQueueRef<'static, G
 /// ## Panics
 ///
 /// This function will panic if `cpu_mask` is empty, indicating that there are no available CPUs for task execution.
-///
 #[cfg(feature = "smp")]
 // The modulo operation is safe here because `axconfig::plat::CPU_NUM` is always greater than 1 with "smp" enabled.
 #[allow(clippy::modulo_one)]
@@ -134,7 +131,6 @@ fn select_run_queue_index(cpumask: AxCpuMask) -> usize {
 /// ## Panics
 ///
 /// This function will panic if the index is out of bounds.
-///
 #[cfg(feature = "smp")]
 #[inline]
 fn get_run_queue(index: usize) -> &'static mut AxRunQueue {
@@ -158,7 +154,6 @@ fn get_run_queue(index: usize) -> &'static mut AxRunQueue {
 ///
 /// 1. Implement better load balancing across CPUs for more efficient task distribution.
 /// 2. Use a more generic load balancing algorithm that can be customized or replaced.
-///
 #[inline]
 pub(crate) fn select_run_queue<G: BaseGuard>(task: &AxTaskRef) -> AxRunQueueRef<'static, G> {
     let irq_state = G::acquire();
@@ -243,6 +238,11 @@ impl<G: BaseGuard> AxRunQueueRef<'_, G> {
             self.inner.cpu_id
         );
         assert!(task.is_ready());
+        #[cfg(feature = "watchdog")]
+        {
+            let _g = kernel_guard::NoPreempt::new();
+            crate::global_task_queue::record_task_for_watchdog(&task);
+        }
         self.inner.scheduler.lock().add_task(task);
     }
 
@@ -593,12 +593,19 @@ fn poll_gc(cx: &mut Context<'_>) -> Poll<()> {
                     drop(task);
                 }
                 Err(task) => {
-                    // Otherwise (e.g, `switch_to` is not compeleted, held by the
+                    // Otherwise (e.g, `switch_to` is not completed, held by the
                     // joiner, etc), push it back and wait for them to drop first.
                     EXITED_TASKS.with_current(|exited_tasks| exited_tasks.push_back(task));
                 }
             }
         }
+
+        #[cfg(feature = "watchdog")]
+        {
+            let _g = kernel_guard::NoPreempt::new();
+            crate::global_task_queue::sweep_watchdog_tasks(this_cpu_id());
+        }
+
         // Note: we cannot block current task with preemption disabled,
         // use `current_ref_raw` to get the `WAIT_FOR_EXIT`'s reference here to avoid
         // the use of `NoPreemptGuard`. Since gc task is pinned to the current
