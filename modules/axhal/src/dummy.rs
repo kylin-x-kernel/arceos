@@ -96,7 +96,7 @@ impl TimeIf for DummyTime {
     fn timer_frequency() -> u64 {
         0
     }
-    
+
     #[cfg(feature = "irq")]
     fn irq_num() -> usize {
         0
@@ -121,6 +121,8 @@ impl PowerIf for DummyPower {
 impl IrqIf for DummyIrq {
     fn set_enable(_irq: usize, _enabled: bool) {}
 
+    fn set_priority(_irq: usize, _priority: u8) {}
+
     fn register(_irq: usize, _handler: IrqHandler) -> bool {
         false
     }
@@ -134,4 +136,18 @@ impl IrqIf for DummyIrq {
     }
 
     fn send_ipi(_irq: usize, _target: IpiTarget) {}
+
+    fn local_irq_save_and_disable() -> usize {
+        0
+    }
+
+    fn local_irq_restore(_flags: usize) {}
+
+    fn enable_irqs() {}
+
+    fn disable_irqs() {}
+
+    fn irqs_enabled() -> bool {
+        false
+    }
 }
