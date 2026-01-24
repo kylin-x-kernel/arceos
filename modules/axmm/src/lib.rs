@@ -45,6 +45,7 @@ fn reg_flag_to_map_flag(f: MemRegionFlags) -> MappingFlags {
 /// Creates a new address space for kernel itself.
 pub fn new_kernel_aspace() -> AxResult<AddrSpace> {
     let cbit_mask = sev_cbit_mask();
+    let shared_range = sev_shared_memory_range();
     let mut aspace = AddrSpace::new_empty(
         va!(axconfig::plat::KERNEL_ASPACE_BASE),
         axconfig::plat::KERNEL_ASPACE_SIZE,
@@ -54,10 +55,14 @@ pub fn new_kernel_aspace() -> AxResult<AddrSpace> {
         let start = r.paddr.align_down_4k();
         let end = (r.paddr + r.size).align_up_4k();
         let mut paddr = start;
-        if cbit_mask != 0
+
+        // Determine if this region should be encrypted (have C-Bit set)
+        let should_encrypt = cbit_mask != 0
             && !r.flags.contains(MemRegionFlags::DEVICE)
             && !r.flags.contains(MemRegionFlags::UNCACHED)
-        {
+            && !is_in_shared_range(start.as_usize(), end.as_usize(), shared_range);
+
+        if should_encrypt {
             paddr = PhysAddr::from(start.as_usize() | cbit_mask);
         }
         aspace.map_linear(
@@ -68,6 +73,16 @@ pub fn new_kernel_aspace() -> AxResult<AddrSpace> {
         )?;
     }
     Ok(aspace)
+}
+
+/// Checks if a memory range overlaps with the shared memory region.
+#[inline]
+fn is_in_shared_range(start: usize, end: usize, shared_range: (usize, usize)) -> bool {
+    if shared_range.0 == 0 && shared_range.1 == 0 {
+        return false;
+    }
+    // Check if ranges overlap
+    start < shared_range.1 && end > shared_range.0
 }
 
 /// Creates a new address space for user processes.
@@ -140,5 +155,43 @@ fn sev_cbit_mask() -> usize {
     #[cfg(not(target_arch = "x86_64"))]
     {
         0
+    }
+}
+
+/// Returns the shared memory range for AMD SEV VirtIO DMA buffers.
+///
+/// This memory region is mapped without the C-Bit, making it accessible
+/// to both guest and host for VirtIO device communication.
+#[inline]
+fn sev_shared_memory_range() -> (usize, usize) {
+    #[cfg(target_arch = "x86_64")]
+    {
+        // Check if SEV is enabled
+        if sev_cbit_mask() == 0 {
+            return (0, 0);
+        }
+        // Try to get shared memory range from platform config
+        #[cfg(any())]
+        {
+            // When platform provides these configs
+            (
+                axconfig::plat::SHARED_MEM_BASE,
+                axconfig::plat::SHARED_MEM_BASE + axconfig::plat::SHARED_MEM_SIZE,
+            )
+        }
+        #[cfg(not(any()))]
+        {
+            // Default shared memory region: 16MB base, 2MB size
+            const DEFAULT_SHARED_MEM_BASE: usize = 0x0100_0000;
+            const DEFAULT_SHARED_MEM_SIZE: usize = 0x0020_0000;
+            (
+                DEFAULT_SHARED_MEM_BASE,
+                DEFAULT_SHARED_MEM_BASE + DEFAULT_SHARED_MEM_SIZE,
+            )
+        }
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        (0, 0)
     }
 }
