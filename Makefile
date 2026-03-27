@@ -93,7 +93,7 @@ endif
 
 .DEFAULT_GOAL := all
 
-ifneq ($(filter $(or $(MAKECMDGOALS), $(.DEFAULT_GOAL)), all build disasm run justrun debug defconfig oldconfig),)
+ifneq ($(filter $(or $(MAKECMDGOALS), $(.DEFAULT_GOAL)), all build disasm run justrun pkvm_run debug defconfig oldconfig),)
 # Install dependencies
 include scripts/make/deps.mk
 # Platform resolving
@@ -163,6 +163,7 @@ all: build
 include scripts/make/utils.mk
 include scripts/make/build.mk
 include scripts/make/qemu.mk
+include scripts/make/pkvm.mk
 ifeq ($(PLAT_NAME), aarch64-raspi4)
   include scripts/make/raspi4.mk
 else ifeq ($(PLAT_NAME), aarch64-bsta1000b)
@@ -184,6 +185,9 @@ run: build justrun
 
 justrun:
 	$(call run_qemu)
+
+pkvm_run:
+	$(call run_pkvm)
 
 debug: build
 	$(call run_qemu_debug) &
